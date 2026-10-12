@@ -3,12 +3,11 @@ const CENTRAL_WAREHOUSE = "Центральный склад";
 const STORE_WAREHOUSE = "Склад точки Аккорд";
 
 // Нумерация колонок начинается с нуля:
-// A = 0, B = 1, C = 2 и так далее.
+// A = 0, B = 1, C = 2 и так далее
 const COLUMNS = {
-  name: 0,     // A — название товара
   warehouse: 1, // B — склад
-  barcode: 3,   // D — штрихкод
-  stock: 6      // G — количество
+  name: 2,      // C — название товара
+  stock: 4      // E — количество
 };
 
 const fileInput = document.getElementById("excelFile");
