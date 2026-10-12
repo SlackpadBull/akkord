@@ -20,15 +20,23 @@ const resultsSection = document.getElementById("results");
 const resultsBody = document.getElementById("resultsBody");
 const resultCount = document.getElementById("resultCount");
 const emptyMessage = document.getElementById("emptyMessage");
+const resultsTitle = document.getElementById("resultsTitle");
+const stockHeader = document.getElementById("stockHeader");
+const centralStockHeader = document.getElementById("centralStockHeader");
+const centralTab = document.getElementById("centralTab");
+const restockTab = document.getElementById("restockTab");
 
 let workbook = null;
 let results = [];
+let restockResults = [];
+let activeList = "central";
 
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files[0];
 
   workbook = null;
   results = [];
+  restockResults = [];
   analyzeBtn.disabled = true;
   exportBtn.disabled = true;
   resultsSection.hidden = true;
@@ -69,6 +77,8 @@ fileInput.addEventListener("change", async () => {
 analyzeBtn.addEventListener("click", analyzeStock);
 
 exportBtn.addEventListener("click", exportResults);
+centralTab.addEventListener("click", () => selectResultsTab("central"));
+restockTab.addEventListener("click", () => selectResultsTab("restock"));
 
 function normalizeText(value) {
   return String(value ?? "").trim();
@@ -172,6 +182,7 @@ function analyzeStock() {
   }
 
   results = [];
+  restockResults = [];
 
   for (const product of products.values()) {
     // Требуется именно наличие строки на центральном складе
@@ -183,11 +194,25 @@ function analyzeStock() {
         stock: product.centralStock
       });
     }
+
+    if (
+      product.storeStock > 0 &&
+      product.storeStock < 2 &&
+      product.centralStock > 0
+    ) {
+      restockResults.push({
+        name: product.name,
+        barcode: product.barcode,
+        storeStock: product.storeStock,
+        centralStock: product.centralStock
+      });
+    }
   }
 
-  results.sort((a, b) =>
-    a.name.localeCompare(b.name, "ru", { sensitivity: "base" })
-  );
+  const sortByName = (a, b) =>
+    a.name.localeCompare(b.name, "ru", { sensitivity: "base" });
+  results.sort(sortByName);
+  restockResults.sort(sortByName);
 
   renderResults();
 
@@ -198,22 +223,57 @@ function analyzeStock() {
 }
 
 function renderResults() {
+  const isRestockList = activeList === "restock";
+  const activeResults = isRestockList ? restockResults : results;
   resultsBody.replaceChildren();
 
-  for (const product of results) {
+  for (const product of activeResults) {
     const tr = document.createElement("tr");
 
     addCell(tr, product.name);
     addCell(tr, product.barcode);
-    addCell(tr, formatStock(product.stock));
+    addCell(
+      tr,
+      formatStock(isRestockList ? product.storeStock : product.stock)
+    );
+
+    if (isRestockList) {
+      addCell(tr, formatStock(product.centralStock));
+    }
 
     resultsBody.appendChild(tr);
   }
 
-  resultCount.textContent = `Найдено: ${results.length}`;
-  emptyMessage.hidden = results.length !== 0;
+  resultsTitle.textContent = isRestockList
+    ? "Товары, которые нужно пополнить"
+    : "Товары только на центральном складе";
+  stockHeader.textContent = isRestockList
+    ? "Остаток в Аккорде"
+    : "Остаток на центральном складе";
+  centralStockHeader.hidden = !isRestockList;
+  resultCount.textContent = `Найдено: ${activeResults.length}`;
+  emptyMessage.textContent = isRestockList
+    ? "Товаров для пополнения не найдено."
+    : "Товаров, которые есть только на центральном складе, не найдено.";
+  emptyMessage.hidden = activeResults.length !== 0;
   resultsSection.hidden = false;
-  exportBtn.disabled = results.length === 0;
+  exportBtn.disabled = activeResults.length === 0;
+}
+
+function selectResultsTab(tab) {
+  activeList = tab;
+  const isCentralList = tab === "central";
+
+  centralTab.classList.toggle("is-active", isCentralList);
+  centralTab.setAttribute("aria-selected", String(isCentralList));
+  restockTab.classList.toggle("is-active", !isCentralList);
+  restockTab.setAttribute("aria-selected", String(!isCentralList));
+  document.getElementById("resultsPanel").setAttribute(
+    "aria-labelledby",
+    isCentralList ? "centralTab" : "restockTab"
+  );
+
+  renderResults();
 }
 
 function addCell(row, value) {
@@ -229,32 +289,39 @@ function formatStock(value) {
 }
 
 function exportResults() {
-  if (!results.length) return;
+  const isRestockList = activeList === "restock";
+  const activeResults = isRestockList ? restockResults : results;
+  if (!activeResults.length) return;
 
   const data = [
-    ["Товар", "Штрихкод", "Остаток на центральном складе"],
-    ...results.map(product => [
-      product.name,
-      product.barcode,
-      product.stock
-    ])
+    isRestockList
+      ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток на центральном складе"]
+      : ["Товар", "Штрихкод", "Остаток на центральном складе"],
+    ...activeResults.map(product => isRestockList
+      ? [product.name, product.barcode, product.storeStock, product.centralStock]
+      : [product.name, product.barcode, product.stock]
+    )
   ];
 
   const worksheet = XLSX.utils.aoa_to_sheet(data);
   worksheet["!cols"] = [
     { wch: 40 },
     { wch: 24 },
-    { wch: 30 }
+    { wch: 24 },
+    ...(isRestockList ? [{ wch: 30 }] : [])
   ];
 
   const exportWorkbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     exportWorkbook,
     worksheet,
-    "Только центральный склад"
+    isRestockList ? "Нужно пополнить" : "Только центральный склад"
   );
 
-  XLSX.writeFile(exportWorkbook, "Товары_только_на_центральном.xlsx");
+  XLSX.writeFile(
+    exportWorkbook,
+    isRestockList ? "Нужно_пополнить.xlsx" : "Товары_только_на_центральном.xlsx"
+  );
 }
 
 function setError(message) {

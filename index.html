@@ -29,32 +29,52 @@
     </section>
 
     <section id="results" hidden>
-      <div class="results-header">
-        <div>
-          <h2>Товары только на центральном складе</h2>
-          <p id="resultCount" class="muted">Найдено: 0</p>
+      <div class="results-tabs" role="tablist" aria-label="Списки товаров">
+        <button
+          type="button"
+          id="centralTab"
+          class="tab-button is-active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="resultsPanel"
+        >Только на центральном</button>
+        <button
+          type="button"
+          id="restockTab"
+          class="tab-button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="resultsPanel"
+        >Нужно пополнить</button>
+      </div>
+
+      <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
+        <div class="results-header">
+          <div>
+            <h2 id="resultsTitle">Товары только на центральном складе</h2>
+            <p id="resultCount" class="muted">Найдено: 0</p>
+          </div>
+          <button id="exportBtn" class="secondary-btn" disabled>
+            Экспорт в Excel
+          </button>
         </div>
-        <button id="exportBtn" class="secondary-btn" disabled>
-          Экспорт в Excel
-        </button>
-      </div>
 
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Товар</th>
-              <th>Штрихкод</th>
-              <th>Остаток</th>
-            </tr>
-          </thead>
-          <tbody id="resultsBody"></tbody>
-        </table>
-      </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Товар</th>
+                <th>Штрихкод</th>
+                <th id="stockHeader">Остаток на центральном складе</th>
+                <th id="centralStockHeader" hidden>Остаток на центральном складе</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
 
-      <p id="emptyMessage" class="empty-message" hidden>
-        Товаров, которые есть только на центральном складе, не найдено.
-      </p>
+        <p id="emptyMessage" class="empty-message" hidden></p>
+      </div>
     </section>
   </main>
 
