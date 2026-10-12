@@ -3,113 +3,61 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Перемещение товаров</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анализ остатков</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="app.js"></script>
 </head>
 <body>
-  <main class="app">
-    <header>
-      <div class="eyebrow">СКЛАДСКОЙ ИНСТРУМЕНТ</div>
-      <h1>Перемещение товаров</h1>
-      <p class="muted">Анализ остатков центрального склада и магазина «Аккорд»</p>
-    </header>
+  <main class="container">
+    <h1>Анализ остатков</h1>
 
-    <section class="panel">
+    <section class="upload-section">
       <h2>Загрузка Excel</h2>
-      <p class="muted">B — склад, D — штрихкод, G — остаток. Название товара берётся из колонки A.</p>
 
-      <label class="dropzone" id="dropzone">
-        <span class="upload-icon">↑</span>
-        <strong id="fileLabel">Выбрать Excel-файл</strong>
-        <span class="muted">Нажми сюда или перетащи файл (.xlsx, .xls, .csv)</span>
-        <input id="fileInput" type="file" accept=".xlsx,.xls,.xlsm,.csv">
+      <label class="file-label" for="excelFile">
+        <span id="fileName">Выберите Excel-файл</span>
+        <input
+          type="file"
+          id="excelFile"
+          accept=".xlsx,.xls,.csv"
+        >
       </label>
 
-      <div class="controls">
-        <label>
-          <span>Лист Excel</span>
-          <select id="sheetSelect" disabled>
-            <option>Сначала выбери файл</option>
-          </select>
-        </label>
-
-        <label>
-          <span>Порог остатка на точке</span>
-          <input id="threshold" type="number" min="2" step="1" value="3">
-        </label>
-
-        <button id="analyze" disabled>Проверить остатки</button>
-      </div>
-
-      <div id="status" role="status"></div>
-      <p class="hint">Файл обрабатывается в браузере и не отправляется на сервер.</p>
+      <button id="analyzeBtn" disabled>Проверить остатки</button>
+      <p id="status" class="status" aria-live="polite"></p>
     </section>
 
     <section id="results" hidden>
-      <div class="stats">
-        <article class="stat">
-          <span>Нет на точке</span>
-          <strong id="missingCount">0</strong>
-        </article>
-        <article class="stat">
-          <span>Остаток 1–2 шт.</span>
-          <strong id="lowCount">0</strong>
-        </article>
-        <article class="stat">
-          <span>Предупреждения</span>
-          <strong id="warningCount">0</strong>
-        </article>
+      <div class="results-header">
+        <div>
+          <h2>Товары только на центральном складе</h2>
+          <p id="resultCount" class="muted">Найдено: 0</p>
+        </div>
+        <button id="exportBtn" class="secondary-btn" disabled>
+          Экспорт в Excel
+        </button>
       </div>
 
-      <section class="panel results-panel">
-        <div class="results-header">
-          <div>
-            <h2>Результаты проверки</h2>
-            <p class="muted" id="summary"></p>
-          </div>
-          <button id="exportAll" class="secondary">Скачать всё в Excel</button>
-        </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Товар</th>
+              <th>Штрихкод</th>
+              <th>Остаток</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
 
-        <nav class="tabs">
-          <button class="tab active" data-tab="missing">
-            Нет на точке <span id="missingTabCount">0</span>
-          </button>
-          <button class="tab" data-tab="low">
-            Меньше 3 <span id="lowTabCount">0</span>
-          </button>
-          <button class="tab" data-tab="warnings">
-            Предупреждения <span id="warningTabCount">0</span>
-          </button>
-        </nav>
-
-        <div class="tools">
-          <input id="search" type="search" placeholder="Поиск по названию или штрихкоду">
-          <select id="sort">
-            <option value="name">По названию</option>
-            <option value="stock-desc">Сначала больше на складе</option>
-            <option value="stock-asc">Сначала меньше на складе</option>
-            <option value="barcode">По штрихкоду</option>
-          </select>
-          <button id="exportCurrent" class="secondary">Скачать список</button>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-          </table>
-          <div id="empty" class="empty" hidden>По заданным условиям ничего не найдено.</div>
-        </div>
-        <div class="table-footer" id="tableFooter"></div>
-      </section>
+      <p id="emptyMessage" class="empty-message" hidden>
+        Товаров, которые есть только на центральном складе, не найдено.
+      </p>
     </section>
-
-    <footer>
-      Результаты зависят от данных в исходной выгрузке.
-    </footer>
   </main>
+
+  <script src="app.js"></script>
 </body>
 </html>
