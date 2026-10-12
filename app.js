@@ -7,7 +7,8 @@ const STORE_WAREHOUSE = "Склад точки Аккорд";
 const COLUMNS = {
   warehouse: 1, // B — склад
   name: 2,      // C — название товара
-  stock: 4      // E — количество
+  barcode: 3,   // D — штрихкод
+  stock: 6      // G — количество
 };
 
 const fileInput = document.getElementById("excelFile");
@@ -140,8 +141,10 @@ function analyzeStock() {
 
     matchedRows++;
 
-    if (!products.has(barcode)) {
-      products.set(barcode, {
+    const productKey = JSON.stringify([barcode, name]);
+
+    if (!products.has(productKey)) {
+      products.set(productKey, {
         barcode,
         name,
         centralStock: 0,
@@ -151,7 +154,7 @@ function analyzeStock() {
       });
     }
 
-    const product = products.get(barcode);
+    const product = products.get(productKey);
 
     if (!product.name && name) {
       product.name = name;
