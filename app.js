@@ -34,6 +34,13 @@ const RESTOCK_EXCLUSIONS = [
   "Аудио интерфейс",
 ];
 
+const RESTOCK_ALLOWLIST = [
+  "Домбра 48р",
+  "Домбра 46 простая",
+  "Кнопка домбра",
+  "Домбра 44"
+];
+
 const fileInput = document.getElementById("excelFile");
 const fileName = document.getElementById("fileName");
 const exportBtn = document.getElementById("exportBtn");
@@ -52,6 +59,7 @@ const restockExceptionsTab = document.getElementById("restockExceptionsTab");
 const resultsPanel = document.getElementById("resultsPanel");
 const exceptionsInfo = document.getElementById("exceptionsInfo");
 const exceptionsList = document.getElementById("exceptionsList");
+const exceptionsAllowed = document.getElementById("exceptionsAllowed");
 
 let workbook = null;
 let results = [];
@@ -120,6 +128,7 @@ restockTab.addEventListener("click", () => selectResultsTab("restock"));
 restockProductsTab.addEventListener("click", () => selectRestockView("restock"));
 restockExceptionsTab.addEventListener("click", () => selectRestockView("exceptions"));
 exceptionsList.textContent = RESTOCK_EXCLUSIONS.join(", ");
+exceptionsAllowed.textContent = `Разрешено: ${RESTOCK_ALLOWLIST.join(", ")}`;
 
 function normalizeText(value) {
   return String(value ?? "").trim();
@@ -171,6 +180,13 @@ function hasRestockExclusion(name) {
   const normalizedName = normalizeText(name).toLocaleLowerCase("ru");
   return RESTOCK_EXCLUSIONS.some(exclusion =>
     normalizedName.includes(exclusion.toLocaleLowerCase("ru"))
+  );
+}
+
+function isRestockAllowed(name) {
+  const normalizedName = normalizeText(name).toLocaleLowerCase("ru");
+  return RESTOCK_ALLOWLIST.some(
+    allowedName => normalizedName === allowedName.toLocaleLowerCase("ru")
   );
 }
 
@@ -285,7 +301,10 @@ function analyzeStock() {
         price: product.price
       };
 
-      if (hasRestockExclusion(product.name)) {
+      if (
+        hasRestockExclusion(product.name) &&
+        !isRestockAllowed(product.name)
+      ) {
         excludedRestockResults.push(restockProduct);
       } else {
         restockResults.push(restockProduct);

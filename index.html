@@ -14,12 +14,12 @@
       <label class="file-label" for="excelFile">
         <span class="upload-title">Анализ остатков</span>
         <span class="file-action">
+          <span class="action-name">Анализ</span>
+          <span id="fileName">Выберите Excel-файл</span>
           <svg class="retry-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20 7v5h-5M4 17v-5h5"></path>
             <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"></path>
           </svg>
-          <span class="action-name">Анализ</span>
-          <span id="fileName">Выберите Excel-файл</span>
         </span>
         <input
           type="file"
@@ -72,14 +72,16 @@
         </div>
 
         <div class="results-header">
-          <h2 id="resultsTitle">Товары только на центральном складе</h2>
+          <div class="results-heading">
+            <h2 id="resultsTitle">Товары только на центральном складе</h2>
+            <div id="exceptionsInfo" class="exceptions-info" hidden>
+              <p id="exceptionsList" class="exceptions-list"></p>
+              <p id="exceptionsAllowed" class="exceptions-allowed"></p>
+            </div>
+          </div>
           <button id="exportBtn" class="secondary-btn" disabled>
             Экспорт в Excel
           </button>
-        </div>
-
-        <div id="exceptionsInfo" class="exceptions-info" hidden>
-          <p id="exceptionsList" class="exceptions-list"></p>
         </div>
 
         <div class="table-wrapper">

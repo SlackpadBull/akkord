@@ -38,7 +38,7 @@ h2 {
 
 .upload-section {
   display: flex;
-  min-height: calc(100vh - 130px);
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -238,18 +238,32 @@ body.has-results .status {
   margin-bottom: 20px;
 }
 
+.results-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .restock-subtabs {
   margin: 0 0 16px;
 }
 
 .exceptions-info {
-  margin-bottom: 18px;
   color: #44444b;
   font-size: 14px;
 }
 
 .exceptions-list {
-  margin: 6px 0 0;
+  margin: 0;
+  color: #44444b;
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.exceptions-allowed {
+  margin: 4px 0 0;
   color: #44444b;
   font-size: 14px;
   line-height: 1.8;
@@ -354,6 +368,10 @@ td:not(:first-child) {
   .results-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .results-heading {
+    width: 100%;
   }
 
   .secondary-btn {
