@@ -12,7 +12,7 @@ const COLUMNS = {
   stock: 6      // G — количество
 };
 
-const RESTOCK_EXCLUSIONS = [
+const RESTOCK_EXCLUSIONS = [ // Исключения «Нужно пополнить»
   "Акустическая система",
   "Гитара",
   "Домбра",
@@ -34,14 +34,14 @@ const RESTOCK_EXCLUSIONS = [
   "Аудио интерфейс",
 ];
 
-const RESTOCK_ALLOWLIST = [
+const RESTOCK_ALLOWLIST = [ // Разрешено «Нужно пополнить»
   "Домбра 48р",
   "Домбра 46 простая",
   "Кнопка домбра",
   "Домбра 44"
 ];
 
-const CENTRAL_EXCLUSIONS = [
+const CENTRAL_EXCLUSIONS = [ // Исключения «Только на центральном»
   "Электрогитара G110",
   "Чехол простой 39",
   "на комплекты",
