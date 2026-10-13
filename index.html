@@ -52,31 +52,21 @@
       </div>
 
       <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
-        <div id="restockViews" class="results-tabs restock-subtabs" role="tablist" aria-label="Списки пополнения" hidden>
-          <button
-            type="button"
-            id="restockProductsTab"
-            class="tab-button is-active"
-            role="tab"
-            aria-selected="true"
-            aria-controls="resultsPanel"
-          >К пополнению</button>
-          <button
-            type="button"
-            id="restockExceptionsTab"
-            class="tab-button"
-            role="tab"
-            aria-selected="false"
-            aria-controls="resultsPanel"
-          >Исключения</button>
-        </div>
-
         <div class="results-header">
           <div class="results-heading">
             <h2 id="resultsTitle">Товары только на центральном складе</h2>
+            <button type="button" id="exceptionsLink" class="text-link" hidden>
+              Исключения
+            </button>
+            <button type="button" id="restockBackLink" class="text-link" hidden>
+              ← К товарам к пополнению
+            </button>
             <div id="exceptionsInfo" class="exceptions-info" hidden>
               <p id="exceptionsList" class="exceptions-list"></p>
-              <p id="exceptionsAllowed" class="exceptions-allowed"></p>
+              <p class="exceptions-allowed">
+                <strong>Разрешено:</strong>
+                <span id="exceptionsAllowed"></span>
+              </p>
             </div>
           </div>
           <button id="exportBtn" class="secondary-btn" disabled>

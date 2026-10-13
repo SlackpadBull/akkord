@@ -53,9 +53,8 @@ const stockHeader = document.getElementById("stockHeader");
 const centralStockHeader = document.getElementById("centralStockHeader");
 const centralTab = document.getElementById("centralTab");
 const restockTab = document.getElementById("restockTab");
-const restockViews = document.getElementById("restockViews");
-const restockProductsTab = document.getElementById("restockProductsTab");
-const restockExceptionsTab = document.getElementById("restockExceptionsTab");
+const exceptionsLink = document.getElementById("exceptionsLink");
+const restockBackLink = document.getElementById("restockBackLink");
 const resultsPanel = document.getElementById("resultsPanel");
 const exceptionsInfo = document.getElementById("exceptionsInfo");
 const exceptionsList = document.getElementById("exceptionsList");
@@ -80,10 +79,6 @@ fileInput.addEventListener("change", async () => {
   centralTab.setAttribute("aria-selected", "true");
   restockTab.classList.remove("is-active");
   restockTab.setAttribute("aria-selected", "false");
-  restockProductsTab.classList.add("is-active");
-  restockProductsTab.setAttribute("aria-selected", "true");
-  restockExceptionsTab.classList.remove("is-active");
-  restockExceptionsTab.setAttribute("aria-selected", "false");
   resultsPanel.setAttribute("aria-labelledby", "centralTab");
   exportBtn.disabled = true;
   resultsSection.hidden = true;
@@ -125,10 +120,10 @@ fileInput.addEventListener("change", async () => {
 exportBtn.addEventListener("click", exportResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
 restockTab.addEventListener("click", () => selectResultsTab("restock"));
-restockProductsTab.addEventListener("click", () => selectRestockView("restock"));
-restockExceptionsTab.addEventListener("click", () => selectRestockView("exceptions"));
+exceptionsLink.addEventListener("click", () => selectRestockView("exceptions"));
+restockBackLink.addEventListener("click", () => selectRestockView("restock"));
 exceptionsList.textContent = RESTOCK_EXCLUSIONS.join(", ");
-exceptionsAllowed.textContent = `Разрешено: ${RESTOCK_ALLOWLIST.join(", ")}`;
+exceptionsAllowed.textContent = RESTOCK_ALLOWLIST.join(", ");
 
 function normalizeText(value) {
   return String(value ?? "").trim();
@@ -335,11 +330,9 @@ function renderResults() {
       ? excludedRestockResults
       : restockResults;
 
-  restockViews.hidden = isCentralList;
-  restockProductsTab.classList.toggle("is-active", activeList === "restock");
-  restockProductsTab.setAttribute("aria-selected", String(activeList === "restock"));
-  restockExceptionsTab.classList.toggle("is-active", isExceptionsList);
-  restockExceptionsTab.setAttribute("aria-selected", String(isExceptionsList));
+  exceptionsLink.hidden = isCentralList || isExceptionsList;
+  exceptionsLink.textContent = `Исключения · ${excludedRestockResults.length}`;
+  restockBackLink.hidden = !isExceptionsList;
   exceptionsInfo.hidden = !isExceptionsList;
   resultsBody.replaceChildren();
 
