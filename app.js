@@ -40,14 +40,17 @@ const stockHeader = document.getElementById("stockHeader");
 const centralStockHeader = document.getElementById("centralStockHeader");
 const centralTab = document.getElementById("centralTab");
 const restockTab = document.getElementById("restockTab");
-const exceptionsTab = document.getElementById("exceptionsTab");
+const restockViews = document.getElementById("restockViews");
+const restockProductsTab = document.getElementById("restockProductsTab");
+const restockExceptionsTab = document.getElementById("restockExceptionsTab");
 const resultsPanel = document.getElementById("resultsPanel");
-const exceptionsPanel = document.getElementById("exceptionsPanel");
+const exceptionsInfo = document.getElementById("exceptionsInfo");
 const exceptionsList = document.getElementById("exceptionsList");
 
 let workbook = null;
 let results = [];
 let restockResults = [];
+let excludedRestockResults = [];
 let activeList = "central";
 
 fileInput.addEventListener("change", async () => {
@@ -56,13 +59,16 @@ fileInput.addEventListener("change", async () => {
   workbook = null;
   results = [];
   restockResults = [];
+  excludedRestockResults = [];
   activeList = "central";
   centralTab.classList.add("is-active");
   centralTab.setAttribute("aria-selected", "true");
   restockTab.classList.remove("is-active");
   restockTab.setAttribute("aria-selected", "false");
-  exceptionsTab.classList.remove("is-active");
-  exceptionsTab.setAttribute("aria-selected", "false");
+  restockProductsTab.classList.add("is-active");
+  restockProductsTab.setAttribute("aria-selected", "true");
+  restockExceptionsTab.classList.remove("is-active");
+  restockExceptionsTab.setAttribute("aria-selected", "false");
   resultsPanel.setAttribute("aria-labelledby", "centralTab");
   exportBtn.disabled = true;
   resultsSection.hidden = true;
@@ -102,7 +108,8 @@ fileInput.addEventListener("change", async () => {
 exportBtn.addEventListener("click", exportResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
 restockTab.addEventListener("click", () => selectResultsTab("restock"));
-exceptionsTab.addEventListener("click", () => selectResultsTab("exceptions"));
+restockProductsTab.addEventListener("click", () => selectRestockView("restock"));
+restockExceptionsTab.addEventListener("click", () => selectRestockView("exceptions"));
 exceptionsList.textContent = RESTOCK_EXCLUSIONS.join(", ");
 
 function normalizeText(value) {
@@ -238,6 +245,7 @@ function analyzeStock() {
 
   results = [];
   restockResults = [];
+  excludedRestockResults = [];
 
   for (const product of products.values()) {
     // Требуется именно наличие строки на центральном складе
@@ -258,16 +266,21 @@ function analyzeStock() {
     if (
       product.storeStock > 0 &&
       product.storeStock < 2 &&
-      product.centralStock > 0 &&
-      !hasRestockExclusion(product.name)
+      product.centralStock > 0
     ) {
-      restockResults.push({
+      const restockProduct = {
         name: product.name,
         barcode: product.barcode,
         storeStock: product.storeStock,
         centralStock: product.centralStock,
         price: product.price
-      });
+      };
+
+      if (hasRestockExclusion(product.name)) {
+        excludedRestockResults.push(restockProduct);
+      } else {
+        restockResults.push(restockProduct);
+      }
     }
   }
 
@@ -275,6 +288,7 @@ function analyzeStock() {
     a.name.localeCompare(b.name, "ru", { sensitivity: "base" });
   results.sort(sortByName);
   restockResults.sort(sortByName);
+  excludedRestockResults.sort(sortByName);
 
   renderResults();
 
@@ -285,18 +299,21 @@ function analyzeStock() {
 }
 
 function renderResults() {
+  const isCentralList = activeList === "central";
   const isExceptionsList = activeList === "exceptions";
-  resultsPanel.hidden = isExceptionsList;
-  exceptionsPanel.hidden = !isExceptionsList;
+  const isRestockList = !isCentralList;
+  const activeResults = isCentralList
+    ? results
+    : isExceptionsList
+      ? excludedRestockResults
+      : restockResults;
 
-  if (isExceptionsList) {
-    resultsSection.hidden = false;
-    document.body.classList.add("has-results");
-    return;
-  }
-
-  const isRestockList = activeList === "restock";
-  const activeResults = isRestockList ? restockResults : results;
+  restockViews.hidden = isCentralList;
+  restockProductsTab.classList.toggle("is-active", activeList === "restock");
+  restockProductsTab.setAttribute("aria-selected", String(activeList === "restock"));
+  restockExceptionsTab.classList.toggle("is-active", isExceptionsList);
+  restockExceptionsTab.setAttribute("aria-selected", String(isExceptionsList));
+  exceptionsInfo.hidden = !isExceptionsList;
   resultsBody.replaceChildren();
 
   for (const product of activeResults) {
@@ -317,18 +334,22 @@ function renderResults() {
     resultsBody.appendChild(tr);
   }
 
-  resultsTitle.textContent = isRestockList
-    ? "Товары, которые нужно пополнить"
-    : "Товары только на центральном складе";
+  resultsTitle.textContent = isCentralList
+    ? "Товары только на центральном складе"
+    : isExceptionsList
+      ? "Товары, исключённые из пополнения"
+      : "Товары, которые нужно пополнить";
   stockHeader.textContent = isRestockList
     ? "Остаток в Аккорде"
     : "Остаток ЦС";
   centralStockHeader.textContent = "Остаток ЦС";
   centralStockHeader.hidden = !isRestockList;
   resultCount.textContent = `Найдено: ${activeResults.length}`;
-  emptyMessage.textContent = isRestockList
-    ? "Товаров для пополнения не найдено."
-    : "Товаров, которые есть только на центральном складе, не найдено.";
+  emptyMessage.textContent = isCentralList
+    ? "Товаров, которые есть только на центральном складе, не найдено."
+    : isExceptionsList
+      ? "Исключённых товаров для пополнения не найдено."
+      : "Товаров для пополнения не найдено.";
   emptyMessage.hidden = activeResults.length !== 0;
   resultsSection.hidden = false;
   document.body.classList.add("has-results");
@@ -344,13 +365,16 @@ function selectResultsTab(tab) {
   centralTab.setAttribute("aria-selected", String(isCentralList));
   restockTab.classList.toggle("is-active", isRestockList);
   restockTab.setAttribute("aria-selected", String(isRestockList));
-  exceptionsTab.classList.toggle("is-active", tab === "exceptions");
-  exceptionsTab.setAttribute("aria-selected", String(tab === "exceptions"));
   resultsPanel.setAttribute(
     "aria-labelledby",
     isCentralList ? "centralTab" : "restockTab"
   );
 
+  renderResults();
+}
+
+function selectRestockView(view) {
+  activeList = view;
   renderResults();
 }
 
@@ -367,8 +391,14 @@ function formatStock(value) {
 }
 
 function exportResults() {
-  const isRestockList = activeList === "restock";
-  const activeResults = isRestockList ? restockResults : results;
+  const isCentralList = activeList === "central";
+  const isRestockList = !isCentralList;
+  const isExceptionsList = activeList === "exceptions";
+  const activeResults = isCentralList
+    ? results
+    : isExceptionsList
+      ? excludedRestockResults
+      : restockResults;
   if (!activeResults.length) return;
 
   const data = [
@@ -394,12 +424,20 @@ function exportResults() {
   XLSX.utils.book_append_sheet(
     exportWorkbook,
     worksheet,
-    isRestockList ? "Нужно пополнить" : "Только центральный склад"
+    isCentralList
+      ? "Только центральный склад"
+      : isExceptionsList
+        ? "Исключения для пополнения"
+        : "Нужно пополнить"
   );
 
   XLSX.writeFile(
     exportWorkbook,
-    isRestockList ? "Нужно_пополнить.xlsx" : "Товары_только_на_центральном.xlsx"
+    isCentralList
+      ? "Товары_только_на_центральном.xlsx"
+      : isExceptionsList
+        ? "Исключения_для_пополнения.xlsx"
+        : "Нужно_пополнить.xlsx"
   );
 }
 

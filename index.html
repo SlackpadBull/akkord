@@ -44,21 +44,37 @@
           aria-selected="false"
           aria-controls="resultsPanel"
         >Нужно пополнить</button>
-        <button
-          type="button"
-          id="exceptionsTab"
-          class="tab-button"
-          role="tab"
-          aria-selected="false"
-          aria-controls="exceptionsPanel"
-        >Исключения</button>
       </div>
 
       <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
+        <div id="restockViews" class="results-tabs restock-subtabs" role="tablist" aria-label="Списки пополнения" hidden>
+          <button
+            type="button"
+            id="restockProductsTab"
+            class="tab-button is-active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="resultsPanel"
+          >К пополнению</button>
+          <button
+            type="button"
+            id="restockExceptionsTab"
+            class="tab-button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="resultsPanel"
+          >Исключения</button>
+        </div>
+
         <div class="results-header">
           <div>
             <h2 id="resultsTitle">Товары только на центральном складе</h2>
             <p id="resultCount" class="muted">Найдено: 0</p>
+        <div id="exceptionsInfo" class="exceptions-info" hidden>
+          <strong>Слова исключения</strong>
+          <p id="exceptionsList" class="exceptions-list"></p>
+        </div>
+
           </div>
           <button id="exportBtn" class="secondary-btn" disabled>
             Экспорт в Excel
@@ -81,11 +97,6 @@
         </div>
 
         <p id="emptyMessage" class="empty-message" hidden></p>
-      </div>
-
-      <div id="exceptionsPanel" role="tabpanel" aria-labelledby="exceptionsTab" hidden>
-        <h2>Исключения</h2>
-        <p id="exceptionsList" class="exceptions-list"></p>
       </div>
     </section>
   </main>
