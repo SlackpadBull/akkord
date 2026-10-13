@@ -396,7 +396,7 @@ function renderResults() {
     if (isRestockList) {
       addCell(tr, formatStock(product.centralStock));
     }
-    addCell(tr, product.price);
+    addCell(tr, formatPrice(product.price));
 
     resultsBody.appendChild(tr);
   }
@@ -463,6 +463,13 @@ function formatStock(value) {
     : String(Number(value.toFixed(3)));
 }
 
+function formatPrice(value) {
+  return String(value ?? "").replace(
+    /[,.]00(?=\s*(?:₽|руб\.?|р\.?)?\s*$)/iu,
+    ""
+  );
+}
+
 function exportResults() {
   const isCentralList = activeList === "central" || activeList === "central-exceptions";
   const isCentralExceptionsList = activeList === "central-exceptions";
@@ -482,8 +489,8 @@ function exportResults() {
       ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток ЦС", "Цена"]
       : ["Товар", "Штрихкод", "Остаток ЦС", "Цена"],
     ...activeResults.map(product => isRestockList
-      ? [product.name, product.barcode, product.storeStock, product.centralStock, product.price]
-      : [product.name, product.barcode, product.stock, product.price]
+      ? [product.name, product.barcode, product.storeStock, product.centralStock, formatPrice(product.price)]
+      : [product.name, product.barcode, product.stock, formatPrice(product.price)]
     )
   ];
 
