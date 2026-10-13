@@ -41,6 +41,17 @@ const RESTOCK_ALLOWLIST = [
   "Домбра 44"
 ];
 
+const CENTRAL_EXCLUSIONS = [
+  "Электрогитара G110",
+  "Чехол простой 39",
+  "на комплекты",
+  "для комплектов",
+  "Fender 097-0113-022",
+  "Fender 097-4220-500",
+  "Гитара акустическая 6454",
+  "Блок питания 9.5 В 1 А"
+];
+
 const fileInput = document.getElementById("excelFile");
 const fileName = document.getElementById("fileName");
 const exportBtn = document.getElementById("exportBtn");
@@ -51,6 +62,7 @@ const emptyMessage = document.getElementById("emptyMessage");
 const resultsTitle = document.getElementById("resultsTitle");
 const stockHeader = document.getElementById("stockHeader");
 const centralStockHeader = document.getElementById("centralStockHeader");
+const exceptionsAllowedInfo = document.getElementById("exceptionsAllowedInfo");
 const centralTab = document.getElementById("centralTab");
 const restockTab = document.getElementById("restockTab");
 const exceptionsLink = document.getElementById("exceptionsLink");
@@ -62,6 +74,7 @@ const exceptionsAllowed = document.getElementById("exceptionsAllowed");
 
 let workbook = null;
 let results = [];
+let excludedCentralResults = [];
 let restockResults = [];
 let excludedRestockResults = [];
 let activeList = "central";
@@ -72,6 +85,7 @@ fileInput.addEventListener("change", async () => {
 
   workbook = null;
   results = [];
+  excludedCentralResults = [];
   restockResults = [];
   excludedRestockResults = [];
   activeList = "central";
@@ -120,8 +134,12 @@ fileInput.addEventListener("change", async () => {
 exportBtn.addEventListener("click", exportResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
 restockTab.addEventListener("click", () => selectResultsTab("restock"));
-exceptionsLink.addEventListener("click", () => selectRestockView("exceptions"));
-restockBackLink.addEventListener("click", () => selectRestockView("restock"));
+exceptionsLink.addEventListener("click", () =>
+  selectRestockView(activeList === "central" ? "central-exceptions" : "exceptions")
+);
+restockBackLink.addEventListener("click", () =>
+  selectRestockView(activeList === "central-exceptions" ? "central" : "restock")
+);
 exceptionsList.textContent = RESTOCK_EXCLUSIONS.join(", ");
 exceptionsAllowed.textContent = RESTOCK_ALLOWLIST.join(", ");
 
@@ -182,6 +200,13 @@ function isRestockAllowed(name) {
   const normalizedName = normalizeText(name).toLocaleLowerCase("ru");
   return RESTOCK_ALLOWLIST.some(
     allowedName => normalizedName === allowedName.toLocaleLowerCase("ru")
+  );
+}
+
+function hasCentralExclusion(name) {
+  const normalizedName = normalizeText(name).toLocaleLowerCase("ru");
+  return CENTRAL_EXCLUSIONS.some(exclusion =>
+    normalizedName.includes(exclusion.toLocaleLowerCase("ru"))
   );
 }
 
@@ -264,6 +289,7 @@ function analyzeStock() {
   }
 
   results = [];
+  excludedCentralResults = [];
   restockResults = [];
   excludedRestockResults = [];
 
@@ -275,12 +301,18 @@ function analyzeStock() {
       !product.hasStoreRow &&
       !isZeroPrice(product.price)
     ) {
-      results.push({
+      const centralProduct = {
         name: product.name,
         barcode: product.barcode,
         stock: product.centralStock,
         price: product.price
-      });
+      };
+
+      if (hasCentralExclusion(product.name)) {
+        excludedCentralResults.push(centralProduct);
+      } else {
+        results.push(centralProduct);
+      }
     }
 
     if (
@@ -310,6 +342,7 @@ function analyzeStock() {
   const sortByName = (a, b) =>
     a.name.localeCompare(b.name, "ru", { sensitivity: "base" });
   results.sort(sortByName);
+  excludedCentralResults.sort(sortByName);
   restockResults.sort(sortByName);
   excludedRestockResults.sort(sortByName);
 
@@ -322,18 +355,30 @@ function analyzeStock() {
 
 function renderResults() {
   const isCentralList = activeList === "central";
-  const isExceptionsList = activeList === "exceptions";
-  const isRestockList = !isCentralList;
+  const isCentralExceptionsList = activeList === "central-exceptions";
+  const isRestockList = activeList === "restock" || activeList === "exceptions";
+  const isExceptionsList = isCentralExceptionsList || activeList === "exceptions";
   const activeResults = isCentralList
     ? results
-    : isExceptionsList
-      ? excludedRestockResults
-      : restockResults;
+    : isCentralExceptionsList
+      ? excludedCentralResults
+      : activeList === "exceptions"
+        ? excludedRestockResults
+        : restockResults;
 
-  exceptionsLink.hidden = isCentralList || isExceptionsList;
-  exceptionsLink.textContent = `Исключения · ${excludedRestockResults.length}`;
+  exceptionsLink.hidden = isExceptionsList;
+  exceptionsLink.textContent = isRestockList
+    ? `Исключения · ${excludedRestockResults.length}`
+    : `Исключения · ${excludedCentralResults.length}`;
   restockBackLink.hidden = !isExceptionsList;
+  restockBackLink.textContent = isCentralExceptionsList
+    ? "← К товарам на центральном складе"
+    : "← К товарам к пополнению";
   exceptionsInfo.hidden = !isExceptionsList;
+  exceptionsList.textContent = isCentralExceptionsList
+    ? CENTRAL_EXCLUSIONS.join(", ")
+    : RESTOCK_EXCLUSIONS.join(", ");
+  exceptionsAllowedInfo.hidden = isCentralExceptionsList;
   resultsBody.replaceChildren();
 
   for (const product of activeResults) {
@@ -356,7 +401,9 @@ function renderResults() {
 
   resultsTitle.textContent = isCentralList
     ? "Товары только на центральном складе"
-    : isExceptionsList
+    : isCentralExceptionsList
+      ? "Товары, исключённые из списка центрального склада"
+      : activeList === "exceptions"
       ? "Товары, исключённые из пополнения"
       : "Товары, которые нужно пополнить";
   stockHeader.textContent = isRestockList
@@ -369,7 +416,9 @@ function renderResults() {
   fileName.textContent = selectedFileName;
   emptyMessage.textContent = isCentralList
     ? "Товаров, которые есть только на центральном складе, не найдено."
-    : isExceptionsList
+    : isCentralExceptionsList
+      ? "Исключённых товаров на центральном складе не найдено."
+      : activeList === "exceptions"
       ? "Исключённых товаров для пополнения не найдено."
       : "Товаров для пополнения не найдено.";
   emptyMessage.hidden = activeResults.length !== 0;
@@ -413,11 +462,14 @@ function formatStock(value) {
 }
 
 function exportResults() {
-  const isCentralList = activeList === "central";
-  const isRestockList = !isCentralList;
+  const isCentralList = activeList === "central" || activeList === "central-exceptions";
+  const isCentralExceptionsList = activeList === "central-exceptions";
+  const isRestockList = activeList === "restock" || activeList === "exceptions";
   const isExceptionsList = activeList === "exceptions";
   const activeResults = isCentralList
-    ? results
+    ? isCentralExceptionsList
+      ? excludedCentralResults
+      : results
     : isExceptionsList
       ? excludedRestockResults
       : restockResults;
@@ -447,7 +499,9 @@ function exportResults() {
     exportWorkbook,
     worksheet,
     isCentralList
-      ? "Только центральный склад"
+      ? isCentralExceptionsList
+        ? "Исключения центрального склада"
+        : "Только центральный склад"
       : isExceptionsList
         ? "Исключения для пополнения"
         : "Нужно пополнить"
@@ -456,7 +510,9 @@ function exportResults() {
   XLSX.writeFile(
     exportWorkbook,
     isCentralList
-      ? "Товары_только_на_центральном.xlsx"
+      ? isCentralExceptionsList
+        ? "Исключения_центрального_склада.xlsx"
+        : "Товары_только_на_центральном.xlsx"
       : isExceptionsList
         ? "Исключения_для_пополнения.xlsx"
         : "Нужно_пополнить.xlsx"
