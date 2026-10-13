@@ -409,9 +409,9 @@ function renderResults() {
       ? "Товары, исключённые из пополнения"
       : "Товары, которые нужно пополнить";
   stockHeader.textContent = isRestockList
-    ? "Остаток в Аккорде"
-    : "Остаток ЦС";
-  centralStockHeader.textContent = "Остаток ЦС";
+    ? "Аккорд"
+    : "ЦС";
+  centralStockHeader.textContent = "ЦС";
   centralStockHeader.hidden = !isRestockList;
   centralTab.textContent = `Только на центральном ${results.length}`;
   restockTab.textContent = `Нужно пополнить ${restockResults.length}`;
@@ -486,8 +486,8 @@ function exportResults() {
 
   const data = [
     isRestockList
-      ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток ЦС", "Цена"]
-      : ["Товар", "Штрихкод", "Остаток ЦС", "Цена"],
+      ? ["Товар", "Штрихкод", "Аккорд", "ЦС", "Цена"]
+      : ["Товар", "Штрихкод", "ЦС", "Цена"],
     ...activeResults.map(product => isRestockList
       ? [product.name, product.barcode, product.storeStock, product.centralStock, formatPrice(product.price)]
       : [product.name, product.barcode, product.stock, formatPrice(product.price)]
