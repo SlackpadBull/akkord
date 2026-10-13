@@ -8,12 +8,12 @@ const COLUMNS = {
   warehouse: 1, // B — склад
   name: 2,      // C — название товара
   barcode: 3,   // D — штрихкод
+  price: 4,     // E — цена
   stock: 6      // G — количество
 };
 
 const fileInput = document.getElementById("excelFile");
 const fileName = document.getElementById("fileName");
-const analyzeBtn = document.getElementById("analyzeBtn");
 const exportBtn = document.getElementById("exportBtn");
 const statusEl = document.getElementById("status");
 const resultsSection = document.getElementById("results");
@@ -37,9 +37,9 @@ fileInput.addEventListener("change", async () => {
   workbook = null;
   results = [];
   restockResults = [];
-  analyzeBtn.disabled = true;
   exportBtn.disabled = true;
   resultsSection.hidden = true;
+  document.body.classList.remove("has-results");
   statusEl.textContent = "";
   statusEl.className = "status";
 
@@ -64,17 +64,13 @@ fileInput.addEventListener("change", async () => {
       throw new Error("В файле нет листов.");
     }
 
-    analyzeBtn.disabled = false;
-    statusEl.textContent =
-      `Файл загружен. Листов: ${workbook.SheetNames.length}.`;
+    analyzeStock();
   } catch (error) {
     workbook = null;
     statusEl.textContent = `Не удалось прочитать файл: ${error.message}`;
     statusEl.className = "status error";
   }
 });
-
-analyzeBtn.addEventListener("click", analyzeStock);
 
 exportBtn.addEventListener("click", exportResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
@@ -133,6 +129,7 @@ function analyzeStock() {
     const warehouse = normalizeText(row[COLUMNS.warehouse]);
     const barcode = normalizeBarcode(row[COLUMNS.barcode]);
     const name = normalizeText(row[COLUMNS.name]);
+    const price = normalizeText(row[COLUMNS.price]);
     const stock = parseStock(row[COLUMNS.stock]);
 
     // Нас интересуют только два указанных склада.
@@ -157,6 +154,7 @@ function analyzeStock() {
       products.set(productKey, {
         barcode,
         name,
+        price,
         centralStock: 0,
         storeStock: 0,
         hasCentralRow: false,
@@ -168,6 +166,9 @@ function analyzeStock() {
 
     if (!product.name && name) {
       product.name = name;
+    }
+    if (!product.price && price) {
+      product.price = price;
     }
 
     if (warehouse === CENTRAL_WAREHOUSE) {
@@ -191,7 +192,8 @@ function analyzeStock() {
       results.push({
         name: product.name,
         barcode: product.barcode,
-        stock: product.centralStock
+        stock: product.centralStock,
+        price: product.price
       });
     }
 
@@ -204,7 +206,8 @@ function analyzeStock() {
         name: product.name,
         barcode: product.barcode,
         storeStock: product.storeStock,
-        centralStock: product.centralStock
+        centralStock: product.centralStock,
+        price: product.price
       });
     }
   }
@@ -240,6 +243,7 @@ function renderResults() {
     if (isRestockList) {
       addCell(tr, formatStock(product.centralStock));
     }
+    addCell(tr, product.price);
 
     resultsBody.appendChild(tr);
   }
@@ -257,6 +261,7 @@ function renderResults() {
     : "Товаров, которые есть только на центральном складе, не найдено.";
   emptyMessage.hidden = activeResults.length !== 0;
   resultsSection.hidden = false;
+  document.body.classList.add("has-results");
   exportBtn.disabled = activeResults.length === 0;
 }
 
@@ -295,11 +300,11 @@ function exportResults() {
 
   const data = [
     isRestockList
-      ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток на центральном складе"]
-      : ["Товар", "Штрихкод", "Остаток на центральном складе"],
+      ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток на центральном складе", "Цена"]
+      : ["Товар", "Штрихкод", "Остаток на центральном складе", "Цена"],
     ...activeResults.map(product => isRestockList
-      ? [product.name, product.barcode, product.storeStock, product.centralStock]
-      : [product.name, product.barcode, product.stock]
+      ? [product.name, product.barcode, product.storeStock, product.centralStock, product.price]
+      : [product.name, product.barcode, product.stock, product.price]
     )
   ];
 
@@ -308,7 +313,8 @@ function exportResults() {
     { wch: 40 },
     { wch: 24 },
     { wch: 24 },
-    ...(isRestockList ? [{ wch: 30 }] : [])
+    ...(isRestockList ? [{ wch: 30 }] : []),
+    { wch: 16 }
   ];
 
   const exportWorkbook = XLSX.utils.book_new();
