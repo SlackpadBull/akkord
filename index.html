@@ -10,12 +10,17 @@
 </head>
 <body>
   <main class="container">
-    <h1>Анализ остатков</h1>
-
     <section class="upload-section">
-
       <label class="file-label" for="excelFile">
-        <span id="fileName">Выберите Excel-файл</span>
+        <span class="upload-title">Анализ остатков</span>
+        <span class="file-action">
+          <svg class="retry-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 7v5h-5M4 17v-5h5"></path>
+            <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"></path>
+          </svg>
+          <span class="action-name">Анализ</span>
+          <span id="fileName">Выберите Excel-файл</span>
+        </span>
         <input
           type="file"
           id="excelFile"
@@ -35,7 +40,7 @@
           role="tab"
           aria-selected="true"
           aria-controls="resultsPanel"
-        >Только на центральном</button>
+        >Только на центральном 0</button>
         <button
           type="button"
           id="restockTab"
@@ -43,7 +48,7 @@
           role="tab"
           aria-selected="false"
           aria-controls="resultsPanel"
-        >Нужно пополнить</button>
+        >Нужно пополнить 0</button>
       </div>
 
       <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
@@ -67,18 +72,14 @@
         </div>
 
         <div class="results-header">
-          <div>
-            <h2 id="resultsTitle">Товары только на центральном складе</h2>
-            <p id="resultCount" class="muted">Найдено: 0</p>
-        <div id="exceptionsInfo" class="exceptions-info" hidden>
-          <strong>Слова исключения</strong>
-          <p id="exceptionsList" class="exceptions-list"></p>
-        </div>
-
-          </div>
+          <h2 id="resultsTitle">Товары только на центральном складе</h2>
           <button id="exportBtn" class="secondary-btn" disabled>
             Экспорт в Excel
           </button>
+        </div>
+
+        <div id="exceptionsInfo" class="exceptions-info" hidden>
+          <p id="exceptionsList" class="exceptions-list"></p>
         </div>
 
         <div class="table-wrapper">

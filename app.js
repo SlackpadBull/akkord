@@ -40,7 +40,6 @@ const exportBtn = document.getElementById("exportBtn");
 const statusEl = document.getElementById("status");
 const resultsSection = document.getElementById("results");
 const resultsBody = document.getElementById("resultsBody");
-const resultCount = document.getElementById("resultCount");
 const emptyMessage = document.getElementById("emptyMessage");
 const resultsTitle = document.getElementById("resultsTitle");
 const stockHeader = document.getElementById("stockHeader");
@@ -59,6 +58,7 @@ let results = [];
 let restockResults = [];
 let excludedRestockResults = [];
 let activeList = "central";
+let selectedFileName = "";
 
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files[0];
@@ -84,10 +84,12 @@ fileInput.addEventListener("change", async () => {
   statusEl.className = "status";
 
   if (!file) {
+    selectedFileName = "";
     fileName.textContent = "Выберите Excel-файл";
     return;
   }
 
+  selectedFileName = file.name;
   fileName.textContent = file.name;
   statusEl.textContent = "Читаем файл…";
 
@@ -301,8 +303,7 @@ function analyzeStock() {
 
   statusEl.className = "status";
   statusEl.textContent =
-    `Анализ завершён. Проверено строк складов: ${matchedRows}. ` +
-    `Пропущено неполных строк: ${skippedRows}.`;
+    `Проверено: ${matchedRows}, пропущено: ${skippedRows}`;
 }
 
 function renderResults() {
@@ -351,7 +352,9 @@ function renderResults() {
     : "Остаток ЦС";
   centralStockHeader.textContent = "Остаток ЦС";
   centralStockHeader.hidden = !isRestockList;
-  resultCount.textContent = `Найдено: ${activeResults.length}`;
+  centralTab.textContent = `Только на центральном ${results.length}`;
+  restockTab.textContent = `Нужно пополнить ${restockResults.length}`;
+  fileName.textContent = selectedFileName;
   emptyMessage.textContent = isCentralList
     ? "Товаров, которые есть только на центральном складе, не найдено."
     : isExceptionsList
