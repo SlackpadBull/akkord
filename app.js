@@ -49,7 +49,8 @@ const CENTRAL_EXCLUSIONS = [ // Исключения «Только на цен�
   "Fender 097-0113-022",
   "Fender 097-4220-500",
   "Гитара акустическая 6454",
-  "Блок питания 9.5 В 1 А"
+  "Блок питания 9.5 В 1 А",
+  "Струны цветные"
 ];
 
 const fileInput = document.getElementById("excelFile");
