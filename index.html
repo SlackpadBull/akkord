@@ -15,7 +15,7 @@
     <section class="upload-section">
 
       <label class="file-label" for="excelFile">
-        <span id="fileName">Выберите Excel-файл</span>
+        <span id="fileName">Выберите Excel-файлфффффффффф</span>
         <input
           type="file"
           id="excelFile"
@@ -44,6 +44,14 @@
           aria-selected="false"
           aria-controls="resultsPanel"
         >Нужно пополнить</button>
+        <button
+          type="button"
+          id="exceptionsTab"
+          class="tab-button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="exceptionsPanel"
+        >Исключения</button>
       </div>
 
       <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
@@ -63,8 +71,8 @@
               <tr>
                 <th>Товар</th>
                 <th>Штрихкод</th>
-                <th id="stockHeader">Остаток на центральном складе</th>
-                <th id="centralStockHeader" hidden>Остаток на центральном складе</th>
+                <th id="stockHeader">Остаток ЦС</th>
+                <th id="centralStockHeader" hidden>Остаток ЦС</th>
                 <th>Цена</th>
               </tr>
             </thead>
@@ -73,6 +81,11 @@
         </div>
 
         <p id="emptyMessage" class="empty-message" hidden></p>
+      </div>
+
+      <div id="exceptionsPanel" role="tabpanel" aria-labelledby="exceptionsTab" hidden>
+        <h2>Исключения</h2>
+        <p id="exceptionsList" class="exceptions-list"></p>
       </div>
     </section>
   </main>

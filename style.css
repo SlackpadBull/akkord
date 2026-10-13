@@ -200,6 +200,14 @@ body.has-results .status {
   font-size: 14px;
 }
 
+.exceptions-list {
+  margin: 12px 0 0;
+  color: #44444b;
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
 .table-wrapper {
   overflow-x: auto;
   border: 1px solid #e7e7e3;

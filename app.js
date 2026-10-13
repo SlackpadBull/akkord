@@ -12,6 +12,21 @@ const COLUMNS = {
   stock: 6      // G — количество
 };
 
+const RESTOCK_EXCLUSIONS = [
+  "акустическая система",
+  "Гитара",
+  "Домбра",
+  "Комбоусилитель",
+  "Комплект",
+  "Коробка",
+  "Микрофон",
+  "MIDI-контроллер",
+  "Синтезатор",
+  "Скрипка",
+  "электрогитара",
+  "Усилитель"
+];
+
 const fileInput = document.getElementById("excelFile");
 const fileName = document.getElementById("fileName");
 const exportBtn = document.getElementById("exportBtn");
@@ -25,6 +40,10 @@ const stockHeader = document.getElementById("stockHeader");
 const centralStockHeader = document.getElementById("centralStockHeader");
 const centralTab = document.getElementById("centralTab");
 const restockTab = document.getElementById("restockTab");
+const exceptionsTab = document.getElementById("exceptionsTab");
+const resultsPanel = document.getElementById("resultsPanel");
+const exceptionsPanel = document.getElementById("exceptionsPanel");
+const exceptionsList = document.getElementById("exceptionsList");
 
 let workbook = null;
 let results = [];
@@ -37,6 +56,14 @@ fileInput.addEventListener("change", async () => {
   workbook = null;
   results = [];
   restockResults = [];
+  activeList = "central";
+  centralTab.classList.add("is-active");
+  centralTab.setAttribute("aria-selected", "true");
+  restockTab.classList.remove("is-active");
+  restockTab.setAttribute("aria-selected", "false");
+  exceptionsTab.classList.remove("is-active");
+  exceptionsTab.setAttribute("aria-selected", "false");
+  resultsPanel.setAttribute("aria-labelledby", "centralTab");
   exportBtn.disabled = true;
   resultsSection.hidden = true;
   document.body.classList.remove("has-results");
@@ -75,6 +102,8 @@ fileInput.addEventListener("change", async () => {
 exportBtn.addEventListener("click", exportResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
 restockTab.addEventListener("click", () => selectResultsTab("restock"));
+exceptionsTab.addEventListener("click", () => selectResultsTab("exceptions"));
+exceptionsList.textContent = RESTOCK_EXCLUSIONS.join(", ");
 
 function normalizeText(value) {
   return String(value ?? "").trim();
@@ -102,6 +131,31 @@ function parseStock(value) {
 
   const number = Number(normalized);
   return Number.isFinite(number) ? number : null;
+}
+
+function isZeroPrice(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value === 0;
+  }
+
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(/[\s\u00a0]/g, "")
+    .replace(/[₽$€£]/g, "")
+    .replace(/(?:руб\.?|р\.?)/giu, "")
+    .replace(",", ".");
+
+  if (!normalized) return false;
+
+  const price = Number(normalized);
+  return Number.isFinite(price) && price === 0;
+}
+
+function hasRestockExclusion(name) {
+  const normalizedName = normalizeText(name).toLocaleLowerCase("ru");
+  return RESTOCK_EXCLUSIONS.some(exclusion =>
+    normalizedName.includes(exclusion.toLocaleLowerCase("ru"))
+  );
 }
 
 function analyzeStock() {
@@ -188,7 +242,11 @@ function analyzeStock() {
   for (const product of products.values()) {
     // Требуется именно наличие строки на центральном складе
     // и отсутствие строки с тем же штрихкодом на складе точки.
-    if (product.hasCentralRow && !product.hasStoreRow) {
+    if (
+      product.hasCentralRow &&
+      !product.hasStoreRow &&
+      !isZeroPrice(product.price)
+    ) {
       results.push({
         name: product.name,
         barcode: product.barcode,
@@ -200,7 +258,8 @@ function analyzeStock() {
     if (
       product.storeStock > 0 &&
       product.storeStock < 2 &&
-      product.centralStock > 0
+      product.centralStock > 0 &&
+      !hasRestockExclusion(product.name)
     ) {
       restockResults.push({
         name: product.name,
@@ -226,6 +285,16 @@ function analyzeStock() {
 }
 
 function renderResults() {
+  const isExceptionsList = activeList === "exceptions";
+  resultsPanel.hidden = isExceptionsList;
+  exceptionsPanel.hidden = !isExceptionsList;
+
+  if (isExceptionsList) {
+    resultsSection.hidden = false;
+    document.body.classList.add("has-results");
+    return;
+  }
+
   const isRestockList = activeList === "restock";
   const activeResults = isRestockList ? restockResults : results;
   resultsBody.replaceChildren();
@@ -253,7 +322,8 @@ function renderResults() {
     : "Товары только на центральном складе";
   stockHeader.textContent = isRestockList
     ? "Остаток в Аккорде"
-    : "Остаток на центральном складе";
+    : "Остаток ЦС";
+  centralStockHeader.textContent = "Остаток ЦС";
   centralStockHeader.hidden = !isRestockList;
   resultCount.textContent = `Найдено: ${activeResults.length}`;
   emptyMessage.textContent = isRestockList
@@ -268,12 +338,15 @@ function renderResults() {
 function selectResultsTab(tab) {
   activeList = tab;
   const isCentralList = tab === "central";
+  const isRestockList = tab === "restock";
 
   centralTab.classList.toggle("is-active", isCentralList);
   centralTab.setAttribute("aria-selected", String(isCentralList));
-  restockTab.classList.toggle("is-active", !isCentralList);
-  restockTab.setAttribute("aria-selected", String(!isCentralList));
-  document.getElementById("resultsPanel").setAttribute(
+  restockTab.classList.toggle("is-active", isRestockList);
+  restockTab.setAttribute("aria-selected", String(isRestockList));
+  exceptionsTab.classList.toggle("is-active", tab === "exceptions");
+  exceptionsTab.setAttribute("aria-selected", String(tab === "exceptions"));
+  resultsPanel.setAttribute(
     "aria-labelledby",
     isCentralList ? "centralTab" : "restockTab"
   );
@@ -300,8 +373,8 @@ function exportResults() {
 
   const data = [
     isRestockList
-      ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток на центральном складе", "Цена"]
-      : ["Товар", "Штрихкод", "Остаток на центральном складе", "Цена"],
+      ? ["Товар", "Штрихкод", "Остаток в Аккорде", "Остаток ЦС", "Цена"]
+      : ["Товар", "Штрихкод", "Остаток ЦС", "Цена"],
     ...activeResults.map(product => isRestockList
       ? [product.name, product.barcode, product.storeStock, product.centralStock, product.price]
       : [product.name, product.barcode, product.stock, product.price]
