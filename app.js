@@ -378,7 +378,7 @@ function analyzeStock() {
                 storeStock: product.storeStock,
                 centralStock: product.centralStock,
                 price: product.price,
-                transferQuantity: '',
+                transferQuantity: String(Math.min(product.centralStock, 3 - product.storeStock)),
             }
 
             if (hasRestockExclusion(product.name) && !isRestockAllowed(product.name)) {
@@ -586,7 +586,7 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
     quantityInput.min = '0'
     quantityInput.step = 'any'
     const maxQuantity = Math.max(0, parseStock(product.centralStock ?? product.stock) ?? 0)
-    const initialQuantity = Math.min(maxQuantity, Math.max(0, parseStock(product.transferQuantity) ?? 0))
+    const initialQuantity = Math.min(maxQuantity, Math.max(0, parseStock(product.transferQuantity) ?? 1))
     quantityInput.max = String(maxQuantity)
     quantityInput.value = String(initialQuantity)
     product.transferQuantity = quantityInput.value
@@ -686,6 +686,14 @@ function formatPrice(value) {
     return String(value ?? '').replace(/[,.]00(?=\s*(?:₽|руб\.?|р\.?)?\s*$)/iu, '')
 }
 
+function formatExportDate() {
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+    }).format(new Date())
+}
+
 function getTransferExportData() {
     const transferItems = getTransferItems()
     return [
@@ -708,7 +716,7 @@ function exportTransferResults() {
 
     const exportWorkbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(exportWorkbook, worksheet, 'Перемещение')
-    XLSX.writeFile(exportWorkbook, 'Перемещение.xlsx')
+    XLSX.writeFile(exportWorkbook, `Перемещение ${formatExportDate()}.xlsx`)
 }
 
 function printTransferResults() {
@@ -743,7 +751,7 @@ function printTransferResults() {
     <html lang="ru">
       <head>
         <meta charset="UTF-8">
-                <title></title>
+                <title>Перемещение ${printDate}</title>
         <style>
                     @page { margin: 0; }
                     body { margin: 0; padding: 16mm; font-family: Arial, Helvetica, sans-serif; color: #202124; }
@@ -858,18 +866,17 @@ function exportResults() {
                 : 'Нужно пополнить',
     )
 
-    XLSX.writeFile(
-        exportWorkbook,
-        isAllStockList
-            ? 'Все_остатки.xlsx'
-            : isCentralList
-              ? isCentralExceptionsList
-                  ? 'Исключения_центрального_склада.xlsx'
-                  : 'Товары_только_на_центральном.xlsx'
-              : isExceptionsList
-                ? 'Исключения_для_пополнения.xlsx'
-                : 'Нужно_пополнить.xlsx',
-    )
+    const exportName = isAllStockList
+        ? 'Все_остатки'
+        : isCentralList
+          ? isCentralExceptionsList
+              ? 'Исключения_центрального_склада'
+              : 'Товары_только_на_центральном'
+          : isExceptionsList
+            ? 'Исключения_для_пополнения'
+            : 'Нужно_пополнить'
+
+    XLSX.writeFile(exportWorkbook, `${exportName} ${formatExportDate()}.xlsx`)
 }
 
 function setError(message) {
