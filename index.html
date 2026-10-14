@@ -50,6 +50,14 @@
           aria-selected="false"
           aria-controls="resultsPanel"
         >Нужно пополнить 0</button>
+        <button
+          type="button"
+          id="allStockTab"
+          class="tab-button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="resultsPanel"
+        >Все остатки 0</button>
       </div>
 
       <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
@@ -78,13 +86,7 @@
         <div class="table-wrapper">
           <table>
             <thead>
-              <tr>
-                <th>Товар</th>
-                <th>Штрихкод</th>
-                <th id="stockHeader">ЦС</th>
-                <th id="centralStockHeader" hidden>ЦС</th>
-                <th>Цена</th>
-              </tr>
+              <tr id="resultsHeadings"></tr>
             </thead>
             <tbody id="resultsBody"></tbody>
           </table>

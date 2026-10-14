@@ -231,10 +231,12 @@ body.has-results .status {
   display: flex;
   gap: 4px;
   margin: -4px 0 20px;
+  overflow-x: auto;
   border-bottom: 1px solid #e7e7e3;
 }
 
 .tab-button {
+  flex: 0 0 auto;
   min-height: 42px;
   padding: 0 14px;
   border-radius: 6px 6px 0 0;

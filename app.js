@@ -1,6 +1,7 @@
 
 const CENTRAL_WAREHOUSE = "Центральный склад";
 const STORE_WAREHOUSE = "Склад точки Аккорд";
+const REPAIR_WAREHOUSE = "Склад точки На ремонт";
 
 // Нумерация колонок начинается с нуля:
 // A = 0, B = 1, C = 2 и так далее
@@ -8,8 +9,10 @@ const COLUMNS = {
   warehouse: 1, // B — склад
   name: 2,      // C — название товара
   barcode: 3,   // D — штрихкод
-  price: 4,     // E — цена
-  stock: 6      // G — количество
+  salePrice: 4,     // E — цена продажи
+  purchasePrice: 5, // F — цена закупки
+  stock: 6,         // G — количество
+  supplier: 9       // J — поставщик
 };
 
 const RESTOCK_EXCLUSIONS = [ // Исключения «Нужно пополнить»
@@ -60,13 +63,13 @@ const exportBtn = document.getElementById("exportBtn");
 const statusEl = document.getElementById("status");
 const resultsSection = document.getElementById("results");
 const resultsBody = document.getElementById("resultsBody");
+const resultsHeadings = document.getElementById("resultsHeadings");
 const emptyMessage = document.getElementById("emptyMessage");
 const resultsTitle = document.getElementById("resultsTitle");
-const stockHeader = document.getElementById("stockHeader");
-const centralStockHeader = document.getElementById("centralStockHeader");
 const exceptionsAllowedInfo = document.getElementById("exceptionsAllowedInfo");
 const centralTab = document.getElementById("centralTab");
 const restockTab = document.getElementById("restockTab");
+const allStockTab = document.getElementById("allStockTab");
 const exceptionsLink = document.getElementById("exceptionsLink");
 const restockBackLink = document.getElementById("restockBackLink");
 const resultsPanel = document.getElementById("resultsPanel");
@@ -79,6 +82,7 @@ let results = [];
 let excludedCentralResults = [];
 let restockResults = [];
 let excludedRestockResults = [];
+let allStockResults = [];
 let activeList = "central";
 let selectedFileName = "";
 
@@ -90,11 +94,14 @@ fileInput.addEventListener("change", async () => {
   excludedCentralResults = [];
   restockResults = [];
   excludedRestockResults = [];
+  allStockResults = [];
   activeList = "central";
   centralTab.classList.add("is-active");
   centralTab.setAttribute("aria-selected", "true");
   restockTab.classList.remove("is-active");
   restockTab.setAttribute("aria-selected", "false");
+  allStockTab.classList.remove("is-active");
+  allStockTab.setAttribute("aria-selected", "false");
   resultsPanel.setAttribute("aria-labelledby", "centralTab");
   exportBtn.disabled = true;
   resultsSection.hidden = true;
@@ -136,6 +143,7 @@ fileInput.addEventListener("change", async () => {
 exportBtn.addEventListener("click", exportResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
 restockTab.addEventListener("click", () => selectResultsTab("restock"));
+allStockTab.addEventListener("click", () => selectResultsTab("all-stock"));
 exceptionsLink.addEventListener("click", () =>
   selectRestockView(activeList === "central" ? "central-exceptions" : "exceptions")
 );
@@ -228,6 +236,7 @@ function analyzeStock() {
   });
 
   const products = new Map();
+  const allProducts = new Map();
   let matchedRows = 0;
   let skippedRows = 0;
 
@@ -237,8 +246,45 @@ function analyzeStock() {
     const warehouse = normalizeText(row[COLUMNS.warehouse]);
     const barcode = normalizeBarcode(row[COLUMNS.barcode]);
     const name = normalizeText(row[COLUMNS.name]);
-    const price = normalizeText(row[COLUMNS.price]);
+    const salePrice = normalizeText(row[COLUMNS.salePrice]);
+    const purchasePrice = normalizeText(row[COLUMNS.purchasePrice]);
+    const supplier = normalizeText(row[COLUMNS.supplier]);
     const stock = parseStock(row[COLUMNS.stock]);
+    const normalizedName = name.toLocaleLowerCase("ru");
+    const isNameHeader = [
+      "название",
+      "название товара",
+      "наименование",
+      "наименование товара",
+      "номенклатура",
+      "товар"
+    ].includes(normalizedName);
+
+    if (name && !isNameHeader) {
+      const allProductKey = JSON.stringify([barcode, name]);
+      if (!allProducts.has(allProductKey)) {
+        allProducts.set(allProductKey, {
+          name,
+          barcode,
+          storeStock: 0,
+          centralStock: 0,
+          repairStock: 0,
+          salePrice,
+          purchasePrice,
+          supplier
+        });
+      }
+
+      const allProduct = allProducts.get(allProductKey);
+      if (!allProduct.salePrice && salePrice) allProduct.salePrice = salePrice;
+      if (!allProduct.purchasePrice && purchasePrice) allProduct.purchasePrice = purchasePrice;
+      if (!allProduct.supplier && supplier) allProduct.supplier = supplier;
+      if (stock !== null) {
+        if (warehouse === STORE_WAREHOUSE) allProduct.storeStock += stock;
+        if (warehouse === CENTRAL_WAREHOUSE) allProduct.centralStock += stock;
+        if (warehouse === REPAIR_WAREHOUSE) allProduct.repairStock += stock;
+      }
+    }
 
     // Нас интересуют только два указанных склада.
     if (
@@ -255,6 +301,7 @@ function analyzeStock() {
     }
 
     matchedRows++;
+    const price = salePrice;
 
     const productKey = JSON.stringify([barcode, name]);
 
@@ -294,6 +341,7 @@ function analyzeStock() {
   excludedCentralResults = [];
   restockResults = [];
   excludedRestockResults = [];
+  allStockResults = Array.from(allProducts.values());
 
   for (const product of products.values()) {
     // Требуется именно наличие строки на центральном складе
@@ -347,6 +395,7 @@ function analyzeStock() {
   excludedCentralResults.sort(sortByName);
   restockResults.sort(sortByName);
   excludedRestockResults.sort(sortByName);
+  allStockResults.sort(sortByName);
 
   renderResults();
 
@@ -356,19 +405,22 @@ function analyzeStock() {
 }
 
 function renderResults() {
+  const isAllStockList = activeList === "all-stock";
   const isCentralList = activeList === "central";
   const isCentralExceptionsList = activeList === "central-exceptions";
   const isRestockList = activeList === "restock" || activeList === "exceptions";
   const isExceptionsList = isCentralExceptionsList || activeList === "exceptions";
-  const activeResults = isCentralList
-    ? results
-    : isCentralExceptionsList
-      ? excludedCentralResults
-      : activeList === "exceptions"
-        ? excludedRestockResults
-        : restockResults;
+  const activeResults = isAllStockList
+    ? allStockResults
+    : isCentralList
+      ? results
+      : isCentralExceptionsList
+        ? excludedCentralResults
+        : activeList === "exceptions"
+          ? excludedRestockResults
+          : restockResults;
 
-  exceptionsLink.hidden = isExceptionsList;
+  exceptionsLink.hidden = isExceptionsList || isAllStockList;
   exceptionsLink.textContent = isRestockList
     ? `Исключения · ${excludedRestockResults.length}`
     : `Исключения · ${excludedCentralResults.length}`;
@@ -382,47 +434,82 @@ function renderResults() {
     : RESTOCK_EXCLUSIONS.join(", ");
   exceptionsAllowedInfo.hidden = isCentralExceptionsList;
   resultsBody.replaceChildren();
+  resultsHeadings.replaceChildren();
+
+  const headings = isAllStockList
+    ? ["Название", "Аккорд", "ЦС", "Ремонт", "Продажа", "Закупка", "Штрих код", "Поставщик"]
+    : isRestockList
+      ? ["Товар", "Штрихкод", "Аккорд", "ЦС", "Цена"]
+      : ["Товар", "Штрихкод", "ЦС", "Цена"];
+  for (const heading of headings) {
+    const th = document.createElement("th");
+    th.textContent = heading;
+    resultsHeadings.appendChild(th);
+  }
 
   for (const product of activeResults) {
     const tr = document.createElement("tr");
 
-    addCell(tr, product.name);
-    addCell(tr, product.barcode);
-    addCell(
-      tr,
-      formatStock(isRestockList ? product.storeStock : product.stock)
-    );
-
-    if (isRestockList) {
+    if (isAllStockList) {
+      addCell(tr, product.name);
+      addCell(tr, formatStock(product.storeStock));
       addCell(tr, formatStock(product.centralStock));
+      addCell(tr, formatStock(product.repairStock));
+      addCell(tr, formatPrice(product.salePrice));
+      addCell(tr, formatPrice(product.purchasePrice));
+      addCell(tr, product.barcode);
+      addCell(tr, product.supplier);
+    } else {
+      addCell(tr, product.name);
+      addCell(tr, product.barcode);
+      addCell(
+        tr,
+        formatStock(isRestockList ? product.storeStock : product.stock)
+      );
+
+      if (isRestockList) {
+        addCell(tr, formatStock(product.centralStock));
+      }
+      addCell(tr, formatPrice(product.price));
     }
-    addCell(tr, formatPrice(product.price));
 
     resultsBody.appendChild(tr);
   }
 
-  resultsTitle.textContent = isCentralList
-    ? "Товары только на центральном складе"
-    : isCentralExceptionsList
-      ? "Товары, исключённые из списка центрального склада"
-      : activeList === "exceptions"
-      ? "Товары, исключённые из пополнения"
-      : "Товары, которые нужно пополнить";
-  stockHeader.textContent = isRestockList
-    ? "Аккорд"
-    : "ЦС";
-  centralStockHeader.textContent = "ЦС";
-  centralStockHeader.hidden = !isRestockList;
+  resultsTitle.textContent = isAllStockList
+    ? "Все остатки"
+    : isCentralList
+      ? "Товары только на центральном складе"
+      : isCentralExceptionsList
+        ? "Товары, исключённые из списка центрального склада"
+        : activeList === "exceptions"
+          ? "Товары, исключённые из пополнения"
+          : "Товары, которые нужно пополнить";
   centralTab.textContent = `Только на центральном ${results.length}`;
   restockTab.textContent = `Нужно пополнить ${restockResults.length}`;
+  allStockTab.textContent = `Все остатки ${allStockResults.length}`;
+  const isCentralActive = isCentralList || isCentralExceptionsList;
+  const isRestockActive = activeList === "restock" || activeList === "exceptions";
+  centralTab.classList.toggle("is-active", isCentralActive);
+  centralTab.setAttribute("aria-selected", String(isCentralActive));
+  restockTab.classList.toggle("is-active", isRestockActive);
+  restockTab.setAttribute("aria-selected", String(isRestockActive));
+  allStockTab.classList.toggle("is-active", isAllStockList);
+  allStockTab.setAttribute("aria-selected", String(isAllStockList));
+  resultsPanel.setAttribute(
+    "aria-labelledby",
+    isAllStockList ? "allStockTab" : isRestockActive ? "restockTab" : "centralTab"
+  );
   fileName.textContent = selectedFileName;
-  emptyMessage.textContent = isCentralList
-    ? "Товаров, которые есть только на центральном складе, не найдено."
-    : isCentralExceptionsList
-      ? "Исключённых товаров на центральном складе не найдено."
-      : activeList === "exceptions"
-      ? "Исключённых товаров для пополнения не найдено."
-      : "Товаров для пополнения не найдено.";
+  emptyMessage.textContent = isAllStockList
+    ? "Товары в файле не найдены."
+    : isCentralList
+      ? "Товаров, которые есть только на центральном складе, не найдено."
+      : isCentralExceptionsList
+        ? "Исключённых товаров на центральном складе не найдено."
+        : activeList === "exceptions"
+          ? "Исключённых товаров для пополнения не найдено."
+          : "Товаров для пополнения не найдено.";
   emptyMessage.hidden = activeResults.length !== 0;
   resultsSection.hidden = false;
   document.body.classList.add("has-results");
@@ -433,14 +520,17 @@ function selectResultsTab(tab) {
   activeList = tab;
   const isCentralList = tab === "central";
   const isRestockList = tab === "restock";
+  const isAllStockList = tab === "all-stock";
 
   centralTab.classList.toggle("is-active", isCentralList);
   centralTab.setAttribute("aria-selected", String(isCentralList));
   restockTab.classList.toggle("is-active", isRestockList);
   restockTab.setAttribute("aria-selected", String(isRestockList));
+  allStockTab.classList.toggle("is-active", isAllStockList);
+  allStockTab.setAttribute("aria-selected", String(isAllStockList));
   resultsPanel.setAttribute(
     "aria-labelledby",
-    isCentralList ? "centralTab" : "restockTab"
+    isCentralList ? "centralTab" : isRestockList ? "restockTab" : "allStockTab"
   );
 
   renderResults();
@@ -471,43 +561,73 @@ function formatPrice(value) {
 }
 
 function exportResults() {
+  const isAllStockList = activeList === "all-stock";
   const isCentralList = activeList === "central" || activeList === "central-exceptions";
   const isCentralExceptionsList = activeList === "central-exceptions";
   const isRestockList = activeList === "restock" || activeList === "exceptions";
   const isExceptionsList = activeList === "exceptions";
-  const activeResults = isCentralList
-    ? isCentralExceptionsList
-      ? excludedCentralResults
-      : results
-    : isExceptionsList
-      ? excludedRestockResults
-      : restockResults;
+  const activeResults = isAllStockList
+    ? allStockResults
+    : isCentralList
+      ? isCentralExceptionsList
+        ? excludedCentralResults
+        : results
+      : isExceptionsList
+        ? excludedRestockResults
+        : restockResults;
   if (!activeResults.length) return;
 
-  const data = [
-    isRestockList
-      ? ["Товар", "Штрихкод", "Аккорд", "ЦС", "Цена"]
-      : ["Товар", "Штрихкод", "ЦС", "Цена"],
-    ...activeResults.map(product => isRestockList
-      ? [product.name, product.barcode, product.storeStock, product.centralStock, formatPrice(product.price)]
-      : [product.name, product.barcode, product.stock, formatPrice(product.price)]
-    )
-  ];
+  const data = isAllStockList
+    ? [
+      ["Название", "Аккорд", "ЦС", "Ремонт", "Продажа", "Закупка", "Штрих код", "Поставщик"],
+      ...activeResults.map(product => [
+        product.name,
+        formatStock(product.storeStock),
+        formatStock(product.centralStock),
+        formatStock(product.repairStock),
+        formatPrice(product.salePrice),
+        formatPrice(product.purchasePrice),
+        product.barcode,
+        product.supplier
+      ])
+    ]
+    : [
+      isRestockList
+        ? ["Товар", "Штрихкод", "Аккорд", "ЦС", "Цена"]
+        : ["Товар", "Штрихкод", "ЦС", "Цена"],
+      ...activeResults.map(product => isRestockList
+        ? [product.name, product.barcode, product.storeStock, product.centralStock, formatPrice(product.price)]
+        : [product.name, product.barcode, product.stock, formatPrice(product.price)]
+      )
+    ];
 
   const worksheet = XLSX.utils.aoa_to_sheet(data);
-  worksheet["!cols"] = [
-    { wch: 40 },
-    { wch: 24 },
-    { wch: 24 },
-    ...(isRestockList ? [{ wch: 30 }] : []),
-    { wch: 16 }
-  ];
+  worksheet["!cols"] = isAllStockList
+    ? [
+      { wch: 40 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 24 },
+      { wch: 30 }
+    ]
+    : [
+      { wch: 40 },
+      { wch: 24 },
+      { wch: 24 },
+      ...(isRestockList ? [{ wch: 30 }] : []),
+      { wch: 16 }
+    ];
 
   const exportWorkbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     exportWorkbook,
     worksheet,
-    isCentralList
+    isAllStockList
+      ? "Все остатки"
+      : isCentralList
       ? isCentralExceptionsList
         ? "Исключения центрального склада"
         : "Только центральный склад"
@@ -518,7 +638,9 @@ function exportResults() {
 
   XLSX.writeFile(
     exportWorkbook,
-    isCentralList
+    isAllStockList
+      ? "Все_остатки.xlsx"
+      : isCentralList
       ? isCentralExceptionsList
         ? "Исключения_центрального_склада.xlsx"
         : "Товары_только_на_центральном.xlsx"
