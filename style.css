@@ -10,6 +10,28 @@
   font-synthesis: none;
 }
 
+html {
+  scrollbar-color: #a5a5ad #f1f1ef;
+}
+
+html::-webkit-scrollbar {
+  width: 14px;
+}
+
+html::-webkit-scrollbar-track {
+  background: #f1f1ef;
+}
+
+html::-webkit-scrollbar-thumb {
+  border: 3px solid #f1f1ef;
+  border-radius: 8px;
+  background: #a5a5ad;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #777780;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -288,6 +310,25 @@ body.has-results .status {
   overflow-x: auto;
   border: 1px solid #e7e7e3;
   border-radius: 8px;
+  scrollbar-color: #a5a5ad #f1f1ef;
+}
+
+.table-wrapper::-webkit-scrollbar {
+  height: 14px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: #f1f1ef;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  border: 3px solid #f1f1ef;
+  border-radius: 8px;
+  background: #a5a5ad;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #777780;
 }
 
 table {
