@@ -689,8 +689,13 @@ function formatPrice(value) {
 function getTransferExportData() {
     const transferItems = getTransferItems()
     return [
-        ['Название', 'Цена', 'Кол-во'],
-        ...transferItems.map(product => [product.name, formatPrice(product.price), Number(product.transferQuantity)]),
+        ['Название', 'Цена', 'Кол-во', 'Цена'],
+        ...transferItems.map(product => [
+            product.name,
+            formatPrice(product.price),
+            Number(product.transferQuantity),
+            '',
+        ]),
     ]
 }
 
@@ -699,7 +704,7 @@ function exportTransferResults() {
     if (!transferItems.length) return
 
     const worksheet = XLSX.utils.aoa_to_sheet(getTransferExportData())
-    worksheet['!cols'] = [{ wch: 40 }, { wch: 16 }, { wch: 16 }]
+    worksheet['!cols'] = [{ wch: 40 }, { wch: 10 }, { wch: 4 }, { wch: 10 }]
 
     const exportWorkbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(exportWorkbook, worksheet, 'Перемещение')
@@ -723,6 +728,7 @@ function printTransferResults() {
       <td>${escapeHtml(product.name)}</td>
             <td>${escapeHtml(formatPrice(product.price))}</td>
       <td>${escapeHtml(product.transferQuantity)}</td>
+    <td></td>
     </tr>
   `,
         )
@@ -744,7 +750,10 @@ function printTransferResults() {
                     .print-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
                     h1 { margin: 0; font-size: 18px; font-weight: 700; }
                     .print-date { font-size: 14px; font-weight: 400; }
-          table { width: 100%; border-collapse: collapse; text-align: left; }
+          table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
+          th:nth-child(1), td:nth-child(1) { width: 62%; }
+          th:nth-child(2), td:nth-child(2), th:nth-child(4), td:nth-child(4) { width: 12%; }
+          th:nth-child(3), td:nth-child(3) { width: 7%; }
           th, td { padding: 8px; border: 1px solid #999; font-size: 12px; }
           th { background: #f2f2f2; }
           @media print {
@@ -760,7 +769,7 @@ function printTransferResults() {
                     <span class="print-date">${printDate}</span>
                 </header>
         <table>
-                    <thead><tr><th>Название</th><th>Цена</th><th>Кол-во</th></tr></thead>
+                    <thead><tr><th>Название</th><th>Цена</th><th>Кол-во</th><th>Цена</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
         <script>window.onload = () => { window.focus(); window.print(); };</script>
