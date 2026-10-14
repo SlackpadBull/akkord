@@ -587,6 +587,7 @@ function renderTransferTable(products) {
 
 function addTransferQuantityCell(row, product, isTransferTable = false) {
   const cell = document.createElement("td");
+  cell.className = "transfer-quantity-cell";
   const controls = document.createElement("div");
   controls.className = "transfer-quantity-controls";
   const quantityInput = document.createElement("input");
