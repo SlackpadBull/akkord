@@ -295,8 +295,8 @@ function analyzeStock() {
             }
         }
 
-        // Нас интересуют только два указанных склада.
-        if (warehouse !== CENTRAL_WAREHOUSE && warehouse !== STORE_WAREHOUSE) {
+        // Считаем строки всех складов, участвующих в сводке остатков.
+        if (warehouse !== CENTRAL_WAREHOUSE && warehouse !== STORE_WAREHOUSE && warehouse !== REPAIR_WAREHOUSE) {
             continue
         }
 
@@ -307,6 +307,9 @@ function analyzeStock() {
         }
 
         matchedRows++
+        // Склад на ремонт участвует в общей сводке, но не в списках перемещения и пополнения.
+        if (warehouse === REPAIR_WAREHOUSE) continue
+
         const price = salePrice
 
         const productKey = JSON.stringify([barcode, name])
