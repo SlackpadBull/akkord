@@ -35,6 +35,8 @@ const RESTOCK_EXCLUSIONS = [ // Исключения «Нужно пополни
   "Звуковая карта",
   "6358",
   "Аудио интерфейс",
+  "Кларнет",
+  "Банкетка Rowell",
 ];
 
 const RESTOCK_ALLOWLIST = [ // Разрешено «Нужно пополнить»
@@ -70,9 +72,17 @@ const exceptionsAllowedInfo = document.getElementById("exceptionsAllowedInfo");
 const centralTab = document.getElementById("centralTab");
 const restockTab = document.getElementById("restockTab");
 const allStockTab = document.getElementById("allStockTab");
+const transferTab = document.getElementById("transferTab");
 const exceptionsLink = document.getElementById("exceptionsLink");
 const restockBackLink = document.getElementById("restockBackLink");
 const resultsPanel = document.getElementById("resultsPanel");
+const transferPanel = document.getElementById("transferPanel");
+const transferBody = document.getElementById("transferBody");
+const blockedTransferBody = document.getElementById("blockedTransferBody");
+const transferEmptyMessage = document.getElementById("transferEmptyMessage");
+const blockedTransferEmptyMessage = document.getElementById("blockedTransferEmptyMessage");
+const transferExportBtn = document.getElementById("transferExportBtn");
+const transferPrintBtn = document.getElementById("transferPrintBtn");
 const exceptionsInfo = document.getElementById("exceptionsInfo");
 const exceptionsList = document.getElementById("exceptionsList");
 const exceptionsAllowed = document.getElementById("exceptionsAllowed");
@@ -83,6 +93,8 @@ let excludedCentralResults = [];
 let restockResults = [];
 let excludedRestockResults = [];
 let allStockResults = [];
+let transferItems = [];
+let blockedTransferItems = [];
 let activeList = "central";
 let selectedFileName = "";
 
@@ -95,6 +107,8 @@ fileInput.addEventListener("change", async () => {
   restockResults = [];
   excludedRestockResults = [];
   allStockResults = [];
+  transferItems = [];
+  blockedTransferItems = [];
   activeList = "central";
   centralTab.classList.add("is-active");
   centralTab.setAttribute("aria-selected", "true");
@@ -102,6 +116,8 @@ fileInput.addEventListener("change", async () => {
   restockTab.setAttribute("aria-selected", "false");
   allStockTab.classList.remove("is-active");
   allStockTab.setAttribute("aria-selected", "false");
+  transferTab.classList.remove("is-active");
+  transferTab.setAttribute("aria-selected", "false");
   resultsPanel.setAttribute("aria-labelledby", "centralTab");
   exportBtn.disabled = true;
   resultsSection.hidden = true;
@@ -141,9 +157,12 @@ fileInput.addEventListener("change", async () => {
 });
 
 exportBtn.addEventListener("click", exportResults);
+transferExportBtn.addEventListener("click", exportTransferResults);
+transferPrintBtn.addEventListener("click", printTransferResults);
 centralTab.addEventListener("click", () => selectResultsTab("central"));
 restockTab.addEventListener("click", () => selectResultsTab("restock"));
 allStockTab.addEventListener("click", () => selectResultsTab("all-stock"));
+transferTab.addEventListener("click", () => selectResultsTab("transfer"));
 exceptionsLink.addEventListener("click", () =>
   selectRestockView(activeList === "central" ? "central-exceptions" : "exceptions")
 );
@@ -397,6 +416,15 @@ function analyzeStock() {
   excludedRestockResults.sort(sortByName);
   allStockResults.sort(sortByName);
 
+  transferItems = [...results, ...restockResults]
+    .sort((a, b) => a.name.localeCompare(b.name, "ru", { sensitivity: "base" }))
+    .map((product, index) => ({
+      ...product,
+      id: index,
+      quantity: ""
+    }));
+  blockedTransferItems = [];
+
   renderResults();
 
   statusEl.className = "status";
@@ -405,6 +433,30 @@ function analyzeStock() {
 }
 
 function renderResults() {
+  if (activeList === "transfer") {
+    resultsPanel.hidden = true;
+    transferPanel.hidden = false;
+    transferTab.textContent = `Перемещение ${transferItems.length}`;
+    centralTab.classList.remove("is-active");
+    centralTab.setAttribute("aria-selected", "false");
+    restockTab.classList.remove("is-active");
+    restockTab.setAttribute("aria-selected", "false");
+    allStockTab.classList.remove("is-active");
+    allStockTab.setAttribute("aria-selected", "false");
+    transferTab.classList.add("is-active");
+    transferTab.setAttribute("aria-selected", "true");
+    resultsPanel.setAttribute("aria-labelledby", "centralTab");
+    renderTransferTables();
+    fileName.textContent = selectedFileName;
+    return;
+  }
+
+  resultsPanel.hidden = false;
+  transferPanel.hidden = true;
+  transferTab.textContent = `Перемещение ${transferItems.length}`;
+  transferTab.classList.remove("is-active");
+  transferTab.setAttribute("aria-selected", "false");
+
   const isAllStockList = activeList === "all-stock";
   const isCentralList = activeList === "central";
   const isCentralExceptionsList = activeList === "central-exceptions";
@@ -516,6 +568,74 @@ function renderResults() {
   exportBtn.disabled = activeResults.length === 0;
 }
 
+function renderTransferTables() {
+  transferBody.replaceChildren();
+  blockedTransferBody.replaceChildren();
+
+  appendTransferRows(transferBody, transferItems, true);
+  appendTransferRows(blockedTransferBody, blockedTransferItems, false);
+
+  transferEmptyMessage.hidden = transferItems.length !== 0;
+  blockedTransferEmptyMessage.hidden = blockedTransferItems.length !== 0;
+  transferExportBtn.disabled = transferItems.length === 0;
+  transferPrintBtn.disabled = transferItems.length === 0;
+}
+
+function appendTransferRows(body, products, canBlock) {
+  for (const product of products) {
+    const row = document.createElement("tr");
+    addCell(row, product.name);
+    addCell(row, formatPrice(product.price));
+    addCell(row, formatStock(product.centralStock ?? product.stock));
+
+    const quantityCell = document.createElement("td");
+    const quantityInput = document.createElement("input");
+    quantityInput.className = "transfer-quantity";
+    quantityInput.type = "number";
+    quantityInput.min = "0";
+    quantityInput.step = "any";
+    quantityInput.value = product.quantity;
+    quantityInput.setAttribute("aria-label", `Количество для ${product.name}`);
+    quantityInput.addEventListener("input", () => {
+      product.quantity = quantityInput.value;
+    });
+    quantityCell.appendChild(quantityInput);
+    row.appendChild(quantityCell);
+
+    const actionCell = document.createElement("td");
+    const actionButton = document.createElement("button");
+    actionButton.type = "button";
+    actionButton.className = "icon-button";
+    actionButton.setAttribute(
+      "aria-label",
+      canBlock
+        ? `Переместить ${product.name} в блок`
+        : `Вернуть ${product.name} в перемещение`
+    );
+    actionButton.title = canBlock ? "В блок" : "Вернуть в перемещение";
+    actionButton.innerHTML = canBlock
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"></path><path d="M4.5 7.8 12 12l7.5-4.2M12 12v9M8 5.3l8 4.5"></path></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h9a6 6 0 0 1 0 12h-2"></path></svg>';
+    actionButton.addEventListener("click", () => {
+      if (canBlock) {
+        transferItems = transferItems.filter(item => item.id !== product.id);
+        blockedTransferItems.push(product);
+      } else {
+        blockedTransferItems = blockedTransferItems.filter(item => item.id !== product.id);
+        transferItems.push(product);
+        transferItems.sort((a, b) =>
+          a.name.localeCompare(b.name, "ru", { sensitivity: "base" })
+        );
+      }
+      renderTransferTables();
+      transferTab.textContent = `Перемещение ${transferItems.length}`;
+    });
+    actionCell.appendChild(actionButton);
+    row.appendChild(actionCell);
+    body.appendChild(row);
+  }
+}
+
 function selectResultsTab(tab) {
   activeList = tab;
   const isCentralList = tab === "central";
@@ -558,6 +678,91 @@ function formatPrice(value) {
     /[,.]00(?=\s*(?:₽|руб\.?|р\.?)?\s*$)/iu,
     ""
   );
+}
+
+function getTransferExportData() {
+  return [
+    ["Название", "Цена", "Кол-во", "Цена"],
+    ...transferItems.map(product => [
+      product.name,
+      formatPrice(product.price),
+      product.quantity === "" ? "" : Number(product.quantity),
+      ""
+    ])
+  ];
+}
+
+function exportTransferResults() {
+  if (!transferItems.length) return;
+
+  const worksheet = XLSX.utils.aoa_to_sheet(getTransferExportData());
+  worksheet["!cols"] = [
+    { wch: 40 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 16 }
+  ];
+
+  const exportWorkbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(exportWorkbook, worksheet, "Перемещение");
+  XLSX.writeFile(exportWorkbook, "Перемещение.xlsx");
+}
+
+function printTransferResults() {
+  if (!transferItems.length) return;
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    setError("Не удалось открыть окно печати. Разрешите всплывающие окна и попробуйте снова.");
+    return;
+  }
+
+  const rows = transferItems.map(product => `
+    <tr>
+      <td>${escapeHtml(product.name)}</td>
+      <td>${escapeHtml(formatPrice(product.price))}</td>
+      <td>${escapeHtml(product.quantity)}</td>
+      <td></td>
+    </tr>
+  `).join("");
+
+  printWindow.document.write(`<!DOCTYPE html>
+    <html lang="ru">
+      <head>
+        <meta charset="UTF-8">
+        <title>Перемещение</title>
+        <style>
+          body { font-family: Arial, Helvetica, sans-serif; color: #202124; }
+          h1 { font-size: 18px; }
+          table { width: 100%; border-collapse: collapse; text-align: left; }
+          th, td { padding: 8px; border: 1px solid #999; font-size: 12px; }
+          th { background: #f2f2f2; }
+          @media print {
+            body { margin: 0; }
+            th { background: #f2f2f2 !important; print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Перемещение</h1>
+        <table>
+          <thead><tr><th>Название</th><th>Цена</th><th>Кол-во</th><th>Цена</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <script>window.onload = () => { window.focus(); window.print(); };</script>
+      </body>
+    </html>`);
+  printWindow.document.close();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
 }
 
 function exportResults() {

@@ -58,6 +58,14 @@
           aria-selected="false"
           aria-controls="resultsPanel"
         >Все остатки 0</button>
+        <button
+          type="button"
+          id="transferTab"
+          class="tab-button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="transferPanel"
+        >Перемещение 0</button>
       </div>
 
       <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
@@ -93,6 +101,61 @@
         </div>
 
         <p id="emptyMessage" class="empty-message" hidden></p>
+      </div>
+
+      <div id="transferPanel" role="tabpanel" aria-labelledby="transferTab" hidden>
+        <div class="results-header">
+          <div class="results-heading">
+            <h2>Таблица на перемещение</h2>
+          </div>
+          <div class="transfer-actions">
+            <button id="transferExportBtn" class="secondary-btn" disabled>
+              Экспорт в Excel
+            </button>
+            <button id="transferPrintBtn" class="secondary-btn" disabled>
+              Печать
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Название</th>
+                <th>Цена</th>
+                <th>ЦС</th>
+                <th>Кол-во</th>
+                <th><span class="visually-hidden">Действие</span></th>
+              </tr>
+            </thead>
+            <tbody id="transferBody"></tbody>
+          </table>
+        </div>
+        <p id="transferEmptyMessage" class="empty-message" hidden>
+          В таблице на перемещение пока нет товаров.
+        </p>
+
+        <div class="transfer-block">
+          <h2>Блок на перемещение</h2>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Название</th>
+                  <th>Цена</th>
+                  <th>ЦС</th>
+                  <th>Кол-во</th>
+                  <th><span class="visually-hidden">Действие</span></th>
+                </tr>
+              </thead>
+              <tbody id="blockedTransferBody"></tbody>
+            </table>
+          </div>
+          <p id="blockedTransferEmptyMessage" class="empty-message" hidden>
+            В блоке на перемещение пока нет товаров.
+          </p>
+        </div>
       </div>
     </section>
   </main>

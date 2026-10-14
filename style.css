@@ -156,6 +156,66 @@ button:disabled {
   background: #f3f3f7;
 }
 
+.transfer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.transfer-block {
+  margin-top: 28px;
+}
+
+.transfer-block h2 {
+  margin-bottom: 16px;
+}
+
+.transfer-quantity {
+  width: 100px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #d9d9d4;
+  border-radius: 6px;
+  color: #202124;
+  font: inherit;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 36px;
+  min-height: 36px;
+  padding: 8px;
+  place-items: center;
+  background: transparent;
+  color: #4849df;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: #f0f0ff;
+  color: #3434b8;
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .status {
   margin: 14px 0 0;
   color: #626269;
@@ -433,6 +493,11 @@ td:not(:first-child) {
 
   .secondary-btn {
     width: 100%;
+  }
+
+  .transfer-actions {
+    width: 100%;
+    flex-direction: column;
   }
 
   th,
