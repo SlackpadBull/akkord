@@ -367,7 +367,7 @@ function analyzeStock() {
 
     if (
       product.storeStock > 0 &&
-      product.storeStock < 2 &&
+      product.storeStock < 3 &&
       product.centralStock > 0
     ) {
       const restockProduct = {
