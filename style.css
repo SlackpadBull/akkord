@@ -296,6 +296,10 @@ body.has-results .status {
   color: #3434b8;
 }
 
+#allStockTab {
+  margin-left: auto;
+}
+
 .results-header {
   display: flex;
   align-items: center;
