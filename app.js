@@ -587,6 +587,8 @@ function renderTransferTable(products) {
 
 function addTransferQuantityCell(row, product, isTransferTable = false) {
   const cell = document.createElement("td");
+  const controls = document.createElement("div");
+  controls.className = "transfer-quantity-controls";
   const quantityInput = document.createElement("input");
   quantityInput.className = "transfer-quantity";
   quantityInput.type = "number";
@@ -594,7 +596,8 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
   quantityInput.step = "any";
   quantityInput.value = product.transferQuantity;
   quantityInput.setAttribute("aria-label", `Количество перемещения: ${product.name}`);
-  quantityInput.addEventListener("input", () => {
+
+  const updateQuantity = () => {
     product.transferQuantity = quantityInput.value;
     updateTransferCount();
     if (activeList === "transfer") {
@@ -602,7 +605,9 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
       transferExportBtn.disabled = !hasTransferItems;
       transferPrintBtn.disabled = !hasTransferItems;
     }
-  });
+  };
+
+  quantityInput.addEventListener("input", updateQuantity);
   if (isTransferTable) {
     quantityInput.addEventListener("blur", () => {
       if (parseStock(product.transferQuantity) <= 0) {
@@ -610,7 +615,33 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
       }
     });
   }
-  cell.appendChild(quantityInput);
+
+  const decrementButton = document.createElement("button");
+  decrementButton.type = "button";
+  decrementButton.className = "transfer-quantity-button";
+  decrementButton.textContent = "−";
+  decrementButton.setAttribute("aria-label", `Уменьшить количество для ${product.name}`);
+
+  const incrementButton = document.createElement("button");
+  incrementButton.type = "button";
+  incrementButton.className = "transfer-quantity-button";
+  incrementButton.textContent = "+";
+  incrementButton.setAttribute("aria-label", `Увеличить количество для ${product.name}`);
+
+  const adjustQuantity = delta => {
+    const currentQuantity = parseStock(quantityInput.value) ?? 0;
+    quantityInput.value = String(Math.max(0, currentQuantity + delta));
+    updateQuantity();
+    if (isTransferTable && parseStock(product.transferQuantity) <= 0) {
+      renderResults();
+    }
+  };
+
+  decrementButton.addEventListener("click", () => adjustQuantity(-1));
+  incrementButton.addEventListener("click", () => adjustQuantity(1));
+
+  controls.append(quantityInput, decrementButton, incrementButton);
+  cell.appendChild(controls);
   row.appendChild(cell);
 }
 
