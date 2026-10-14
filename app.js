@@ -78,9 +78,7 @@ const restockBackLink = document.getElementById("restockBackLink");
 const resultsPanel = document.getElementById("resultsPanel");
 const transferPanel = document.getElementById("transferPanel");
 const transferBody = document.getElementById("transferBody");
-const blockedTransferBody = document.getElementById("blockedTransferBody");
 const transferEmptyMessage = document.getElementById("transferEmptyMessage");
-const blockedTransferEmptyMessage = document.getElementById("blockedTransferEmptyMessage");
 const transferExportBtn = document.getElementById("transferExportBtn");
 const transferPrintBtn = document.getElementById("transferPrintBtn");
 const exceptionsInfo = document.getElementById("exceptionsInfo");
@@ -93,8 +91,6 @@ let excludedCentralResults = [];
 let restockResults = [];
 let excludedRestockResults = [];
 let allStockResults = [];
-let transferItems = [];
-let blockedTransferItems = [];
 let activeList = "central";
 let selectedFileName = "";
 
@@ -107,8 +103,6 @@ fileInput.addEventListener("change", async () => {
   restockResults = [];
   excludedRestockResults = [];
   allStockResults = [];
-  transferItems = [];
-  blockedTransferItems = [];
   activeList = "central";
   centralTab.classList.add("is-active");
   centralTab.setAttribute("aria-selected", "true");
@@ -374,7 +368,8 @@ function analyzeStock() {
         name: product.name,
         barcode: product.barcode,
         stock: product.centralStock,
-        price: product.price
+        price: product.price,
+        transferQuantity: ""
       };
 
       if (hasCentralExclusion(product.name)) {
@@ -394,7 +389,8 @@ function analyzeStock() {
         barcode: product.barcode,
         storeStock: product.storeStock,
         centralStock: product.centralStock,
-        price: product.price
+        price: product.price,
+        transferQuantity: ""
       };
 
       if (
@@ -416,15 +412,6 @@ function analyzeStock() {
   excludedRestockResults.sort(sortByName);
   allStockResults.sort(sortByName);
 
-  transferItems = [...results, ...restockResults]
-    .sort((a, b) => a.name.localeCompare(b.name, "ru", { sensitivity: "base" }))
-    .map((product, index) => ({
-      ...product,
-      id: index,
-      quantity: ""
-    }));
-  blockedTransferItems = [];
-
   renderResults();
 
   statusEl.className = "status";
@@ -434,6 +421,7 @@ function analyzeStock() {
 
 function renderResults() {
   if (activeList === "transfer") {
+    const transferItems = getTransferItems();
     resultsPanel.hidden = true;
     transferPanel.hidden = false;
     transferTab.textContent = `Перемещение ${transferItems.length}`;
@@ -446,14 +434,14 @@ function renderResults() {
     transferTab.classList.add("is-active");
     transferTab.setAttribute("aria-selected", "true");
     resultsPanel.setAttribute("aria-labelledby", "centralTab");
-    renderTransferTables();
+    renderTransferTable(transferItems);
     fileName.textContent = selectedFileName;
     return;
   }
 
   resultsPanel.hidden = false;
   transferPanel.hidden = true;
-  transferTab.textContent = `Перемещение ${transferItems.length}`;
+  updateTransferCount();
   transferTab.classList.remove("is-active");
   transferTab.setAttribute("aria-selected", "false");
 
@@ -461,6 +449,7 @@ function renderResults() {
   const isCentralList = activeList === "central";
   const isCentralExceptionsList = activeList === "central-exceptions";
   const isRestockList = activeList === "restock" || activeList === "exceptions";
+  const isMoveEditable = isCentralList || activeList === "restock";
   const isExceptionsList = isCentralExceptionsList || activeList === "exceptions";
   const activeResults = isAllStockList
     ? allStockResults
@@ -491,8 +480,8 @@ function renderResults() {
   const headings = isAllStockList
     ? ["Название", "Аккорд", "ЦС", "Ремонт", "Продажа", "Закупка", "Штрих код", "Поставщик"]
     : isRestockList
-      ? ["Товар", "Штрихкод", "Аккорд", "ЦС", "Цена"]
-      : ["Товар", "Штрихкод", "ЦС", "Цена"];
+      ? ["Товар", "Штрихкод", "Аккорд", "ЦС", "Цена", ...(isMoveEditable ? ["Перемещение"] : [])]
+      : ["Товар", "Штрихкод", "ЦС", "Цена", ...(isMoveEditable ? ["Перемещение"] : [])];
   for (const heading of headings) {
     const th = document.createElement("th");
     th.textContent = heading;
@@ -523,6 +512,9 @@ function renderResults() {
         addCell(tr, formatStock(product.centralStock));
       }
       addCell(tr, formatPrice(product.price));
+      if (isMoveEditable) {
+        addTransferQuantityCell(tr, product);
+      }
     }
 
     resultsBody.appendChild(tr);
@@ -568,72 +560,58 @@ function renderResults() {
   exportBtn.disabled = activeResults.length === 0;
 }
 
-function renderTransferTables() {
-  transferBody.replaceChildren();
-  blockedTransferBody.replaceChildren();
-
-  appendTransferRows(transferBody, transferItems, true);
-  appendTransferRows(blockedTransferBody, blockedTransferItems, false);
-
-  transferEmptyMessage.hidden = transferItems.length !== 0;
-  blockedTransferEmptyMessage.hidden = blockedTransferItems.length !== 0;
-  transferExportBtn.disabled = transferItems.length === 0;
-  transferPrintBtn.disabled = transferItems.length === 0;
+function getTransferItems() {
+  return [...results, ...restockResults]
+    .filter(product => parseStock(product.transferQuantity) > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, "ru", { sensitivity: "base" }));
 }
 
-function appendTransferRows(body, products, canBlock) {
+function updateTransferCount() {
+  transferTab.textContent = `Перемещение ${getTransferItems().length}`;
+}
+
+function renderTransferTable(products) {
+  transferBody.replaceChildren();
   for (const product of products) {
     const row = document.createElement("tr");
     addCell(row, product.name);
     addCell(row, formatPrice(product.price));
     addCell(row, formatStock(product.centralStock ?? product.stock));
-
-    const quantityCell = document.createElement("td");
-    const quantityInput = document.createElement("input");
-    quantityInput.className = "transfer-quantity";
-    quantityInput.type = "number";
-    quantityInput.min = "0";
-    quantityInput.step = "any";
-    quantityInput.value = product.quantity;
-    quantityInput.setAttribute("aria-label", `Количество для ${product.name}`);
-    quantityInput.addEventListener("input", () => {
-      product.quantity = quantityInput.value;
-    });
-    quantityCell.appendChild(quantityInput);
-    row.appendChild(quantityCell);
-
-    const actionCell = document.createElement("td");
-    const actionButton = document.createElement("button");
-    actionButton.type = "button";
-    actionButton.className = "icon-button";
-    actionButton.setAttribute(
-      "aria-label",
-      canBlock
-        ? `Переместить ${product.name} в блок`
-        : `Вернуть ${product.name} в перемещение`
-    );
-    actionButton.title = canBlock ? "В блок" : "Вернуть в перемещение";
-    actionButton.innerHTML = canBlock
-      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"></path><path d="M4.5 7.8 12 12l7.5-4.2M12 12v9M8 5.3l8 4.5"></path></svg>'
-      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h9a6 6 0 0 1 0 12h-2"></path></svg>';
-    actionButton.addEventListener("click", () => {
-      if (canBlock) {
-        transferItems = transferItems.filter(item => item.id !== product.id);
-        blockedTransferItems.push(product);
-      } else {
-        blockedTransferItems = blockedTransferItems.filter(item => item.id !== product.id);
-        transferItems.push(product);
-        transferItems.sort((a, b) =>
-          a.name.localeCompare(b.name, "ru", { sensitivity: "base" })
-        );
-      }
-      renderTransferTables();
-      transferTab.textContent = `Перемещение ${transferItems.length}`;
-    });
-    actionCell.appendChild(actionButton);
-    row.appendChild(actionCell);
-    body.appendChild(row);
+    addTransferQuantityCell(row, product, true);
+    transferBody.appendChild(row);
   }
+  transferEmptyMessage.hidden = products.length !== 0;
+  transferExportBtn.disabled = products.length === 0;
+  transferPrintBtn.disabled = products.length === 0;
+}
+
+function addTransferQuantityCell(row, product, isTransferTable = false) {
+  const cell = document.createElement("td");
+  const quantityInput = document.createElement("input");
+  quantityInput.className = "transfer-quantity";
+  quantityInput.type = "number";
+  quantityInput.min = "0";
+  quantityInput.step = "any";
+  quantityInput.value = product.transferQuantity;
+  quantityInput.setAttribute("aria-label", `Количество перемещения: ${product.name}`);
+  quantityInput.addEventListener("input", () => {
+    product.transferQuantity = quantityInput.value;
+    updateTransferCount();
+    if (activeList === "transfer") {
+      const hasTransferItems = getTransferItems().length > 0;
+      transferExportBtn.disabled = !hasTransferItems;
+      transferPrintBtn.disabled = !hasTransferItems;
+    }
+  });
+  if (isTransferTable) {
+    quantityInput.addEventListener("blur", () => {
+      if (parseStock(product.transferQuantity) <= 0) {
+        renderResults();
+      }
+    });
+  }
+  cell.appendChild(quantityInput);
+  row.appendChild(cell);
 }
 
 function selectResultsTab(tab) {
@@ -681,18 +659,20 @@ function formatPrice(value) {
 }
 
 function getTransferExportData() {
+  const transferItems = getTransferItems();
   return [
     ["Название", "Цена", "Кол-во", "Цена"],
     ...transferItems.map(product => [
       product.name,
       formatPrice(product.price),
-      product.quantity === "" ? "" : Number(product.quantity),
+      Number(product.transferQuantity),
       ""
     ])
   ];
 }
 
 function exportTransferResults() {
+  const transferItems = getTransferItems();
   if (!transferItems.length) return;
 
   const worksheet = XLSX.utils.aoa_to_sheet(getTransferExportData());
@@ -709,6 +689,7 @@ function exportTransferResults() {
 }
 
 function printTransferResults() {
+  const transferItems = getTransferItems();
   if (!transferItems.length) return;
 
   const printWindow = window.open("", "_blank");
@@ -721,7 +702,7 @@ function printTransferResults() {
     <tr>
       <td>${escapeHtml(product.name)}</td>
       <td>${escapeHtml(formatPrice(product.price))}</td>
-      <td>${escapeHtml(product.quantity)}</td>
+      <td>${escapeHtml(product.transferQuantity)}</td>
       <td></td>
     </tr>
   `).join("");
