@@ -1,116 +1,141 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Анализ остатков</title>
+        <link rel="icon" type="image/png" href="icon.png" />
+        <link rel="stylesheet" href="style.css" />
+        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Анализ остатков</title>
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-</head>
+    <body>
+        <main class="container">
+            <section class="upload-section">
+                <label class="file-label" for="excelFile">
+                    <span class="upload-title">Анализ остатков</span>
+                    <span class="file-action">
+                        <span class="action-name">Анализ</span>
+                        <span id="fileName">Выберите Excel-файл</span>
+                        <svg class="retry-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20 7v5h-5M4 17v-5h5"></path>
+                            <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"></path>
+                        </svg>
+                    </span>
+                    <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" />
+                </label>
 
-<body>
-  <main class="container">
-    <section class="upload-section">
-      <label class="file-label" for="excelFile">
-        <span class="upload-title">Анализ остатков</span>
-        <span class="file-action">
-          <span class="action-name">Анализ</span>
-          <span id="fileName">Выберите Excel-файл</span>
-          <svg class="retry-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M20 7v5h-5M4 17v-5h5"></path>
-            <path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"></path>
-          </svg>
-        </span>
-        <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
-      </label>
+                <p id="status" class="status" aria-live="polite"></p>
+            </section>
 
-      <p id="status" class="status" aria-live="polite"></p>
-    </section>
+            <section id="results" hidden>
+                <div class="results-tabs" role="tablist" aria-label="Списки товаров">
+                    <button
+                        type="button"
+                        id="centralTab"
+                        class="tab-button is-active"
+                        role="tab"
+                        aria-selected="true"
+                        aria-controls="resultsPanel">
+                        Только на центральном 0
+                    </button>
+                    <button
+                        type="button"
+                        id="restockTab"
+                        class="tab-button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="resultsPanel">
+                        Нужно пополнить 0
+                    </button>
+                    <button
+                        type="button"
+                        id="transferTab"
+                        class="tab-button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="transferPanel">
+                        Перемещение 0
+                    </button>
+                    <button
+                        type="button"
+                        id="allStockTab"
+                        class="tab-button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="resultsPanel">
+                        Все остатки 0
+                    </button>
+                </div>
 
-    <section id="results" hidden>
-      <div class="results-tabs" role="tablist" aria-label="Списки товаров">
-        <button type="button" id="centralTab" class="tab-button is-active" role="tab" aria-selected="true"
-          aria-controls="resultsPanel">Только на центральном 0</button>
-        <button type="button" id="restockTab" class="tab-button" role="tab" aria-selected="false"
-          aria-controls="resultsPanel">Нужно пополнить 0</button>
-        <button type="button" id="transferTab" class="tab-button" role="tab" aria-selected="false"
-          aria-controls="transferPanel">Перемещение 0</button>
-        <button type="button" id="allStockTab" class="tab-button" role="tab" aria-selected="false"
-          aria-controls="resultsPanel">Все остатки 0</button>
-      </div>
+                <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
+                    <div class="results-header">
+                        <div class="results-heading">
+                            <h2 id="resultsTitle">Товары только на центральном складе</h2>
+                            <button type="button" id="exceptionsLink" class="text-link" hidden>Исключения</button>
+                            <button type="button" id="restockBackLink" class="text-link" hidden>
+                                ← К товарам к пополнению
+                            </button>
+                            <div id="exceptionsInfo" class="exceptions-info" hidden>
+                                <p id="exceptionsList" class="exceptions-list"></p>
+                                <p id="exceptionsAllowedInfo" class="exceptions-allowed">
+                                    <strong>Разрешено:</strong>
+                                    <span id="exceptionsAllowed"></span>
+                                </p>
+                            </div>
+                        </div>
+                        <button id="exportBtn" class="secondary-btn" disabled>Экспорт в Excel</button>
+                    </div>
 
-      <div id="resultsPanel" role="tabpanel" aria-labelledby="centralTab">
-        <div class="results-header">
-          <div class="results-heading">
-            <h2 id="resultsTitle">Товары только на центральном складе</h2>
-            <button type="button" id="exceptionsLink" class="text-link" hidden>
-              Исключения
-            </button>
-            <button type="button" id="restockBackLink" class="text-link" hidden>
-              ← К товарам к пополнению
-            </button>
-            <div id="exceptionsInfo" class="exceptions-info" hidden>
-              <p id="exceptionsList" class="exceptions-list"></p>
-              <p id="exceptionsAllowedInfo" class="exceptions-allowed">
-                <strong>Разрешено:</strong>
-                <span id="exceptionsAllowed"></span>
-              </p>
-            </div>
-          </div>
-          <button id="exportBtn" class="secondary-btn" disabled>
-            Экспорт в Excel
-          </button>
-        </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr id="resultsHeadings"></tr>
+                            </thead>
+                            <tbody id="resultsBody"></tbody>
+                        </table>
+                    </div>
 
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr id="resultsHeadings"></tr>
-            </thead>
-            <tbody id="resultsBody"></tbody>
-          </table>
-        </div>
+                    <p id="emptyMessage" class="empty-message" hidden></p>
+                </div>
 
-        <p id="emptyMessage" class="empty-message" hidden></p>
-      </div>
+                <div id="transferPanel" role="tabpanel" aria-labelledby="transferTab" hidden>
+                    <div class="results-header">
+                        <div class="results-heading">
+                            <h2>Таблица на перемещение</h2>
+                            <button type="button" id="transferExcludedLink" class="text-link" hidden>
+                                Не вошло в перемещение
+                            </button>
+                            <button type="button" id="transferBackLink" class="text-link" hidden>
+                                ← К товарам в перемещение
+                            </button>
+                        </div>
+                        <div class="transfer-actions">
+                            <button id="transferExportBtn" class="secondary-btn" disabled>Экспорт в Excel</button>
+                            <button id="transferPrintBtn" class="secondary-btn" disabled>Печать</button>
+                        </div>
+                    </div>
 
-      <div id="transferPanel" role="tabpanel" aria-labelledby="transferTab" hidden>
-        <div class="results-header">
-          <div class="results-heading">
-            <h2>Таблица на перемещение</h2>
-          </div>
-          <div class="transfer-actions">
-            <button id="transferExportBtn" class="secondary-btn" disabled>
-              Экспорт в Excel
-            </button>
-            <button id="transferPrintBtn" class="secondary-btn" disabled>
-              Печать
-            </button>
-          </div>
-        </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th>Цена</th>
+                                    <th class="same-width-column">Перемещение</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transferBody"></tbody>
+                        </table>
+                    </div>
+                    <p id="transferEmptyMessage" class="empty-message" hidden>
+                        В таблице на перемещение пока нет товаров.
+                    </p>
+                </div>
+            </section>
+        </main>
 
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Название</th>
-                <th>Цена</th>
-                <th class="same-width-column">Перемещение</th>
-              </tr>
-            </thead>
-            <tbody id="transferBody"></tbody>
-          </table>
-        </div>
-        <p id="transferEmptyMessage" class="empty-message" hidden>
-          В таблице на перемещение пока нет товаров.
-        </p>
-      </div>
-    </section>
-  </main>
-
-  <script src="app.js"></script>
-</body>
-
+        <script src="app.js"></script>
+    </body>
 </html>
