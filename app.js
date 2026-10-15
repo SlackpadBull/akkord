@@ -83,6 +83,8 @@ const transferBody = document.getElementById('transferBody')
 const transferEmptyMessage = document.getElementById('transferEmptyMessage')
 const transferExportBtn = document.getElementById('transferExportBtn')
 const transferPrintBtn = document.getElementById('transferPrintBtn')
+const transferExcludedLink = document.getElementById('transferExcludedLink')
+const transferBackLink = document.getElementById('transferBackLink')
 const exceptionsInfo = document.getElementById('exceptionsInfo')
 const exceptionsList = document.getElementById('exceptionsList')
 const exceptionsAllowed = document.getElementById('exceptionsAllowed')
@@ -94,6 +96,7 @@ let restockResults = []
 let excludedRestockResults = []
 let allStockResults = []
 let activeList = 'central'
+let transferView = 'items'
 let selectedFileName = ''
 
 fileInput.addEventListener('change', async () => {
@@ -106,6 +109,7 @@ fileInput.addEventListener('change', async () => {
     excludedRestockResults = []
     allStockResults = []
     activeList = 'central'
+    transferView = 'items'
     centralTab.classList.add('is-active')
     centralTab.setAttribute('aria-selected', 'true')
     restockTab.classList.remove('is-active')
@@ -158,7 +162,18 @@ transferPrintBtn.addEventListener('click', printTransferResults)
 centralTab.addEventListener('click', () => selectResultsTab('central'))
 restockTab.addEventListener('click', () => selectResultsTab('restock'))
 allStockTab.addEventListener('click', () => selectResultsTab('all-stock'))
-transferTab.addEventListener('click', () => selectResultsTab('transfer'))
+transferTab.addEventListener('click', () => {
+    transferView = 'items'
+    selectResultsTab('transfer')
+})
+transferExcludedLink.addEventListener('click', () => {
+    transferView = 'excluded'
+    renderResults()
+})
+transferBackLink.addEventListener('click', () => {
+    transferView = 'items'
+    renderResults()
+})
 exceptionsLink.addEventListener('click', () =>
     selectRestockView(activeList === 'central' ? 'central-exceptions' : 'exceptions'),
 )
@@ -170,6 +185,22 @@ exceptionsAllowed.textContent = RESTOCK_ALLOWLIST.join(', ')
 
 function normalizeText(value) {
     return String(value ?? '').trim()
+}
+
+function getProductKey(product) {
+    return JSON.stringify([normalizeBarcode(product?.barcode), normalizeText(product?.name)])
+}
+
+function syncTransferQuantityAcrossLists(productKey, quantity) {
+    const normalized = String(quantity ?? '')
+
+    for (const list of [results, excludedCentralResults, restockResults, excludedRestockResults, allStockResults]) {
+        for (const item of list) {
+            if (getProductKey(item) === productKey) {
+                item.transferQuantity = normalized
+            }
+        }
+    }
 }
 
 function normalizeBarcode(value) {
@@ -350,7 +381,11 @@ function analyzeStock() {
     excludedCentralResults = []
     restockResults = []
     excludedRestockResults = []
-    allStockResults = Array.from(allProducts.values())
+    allStockResults = Array.from(allProducts.values()).map(product => ({
+        ...product,
+        price: product.salePrice ?? product.purchasePrice ?? '',
+        transferQuantity: '',
+    }))
 
     for (const product of products.values()) {
         // Требуется именно наличие строки на центральном складе
@@ -361,7 +396,7 @@ function analyzeStock() {
                 barcode: product.barcode,
                 stock: product.centralStock,
                 price: product.price,
-                transferQuantity: '',
+                transferQuantity: '1',
             }
 
             if (hasCentralExclusion(product.name)) {
@@ -396,6 +431,18 @@ function analyzeStock() {
     excludedRestockResults.sort(sortByName)
     allStockResults.sort(sortByName)
 
+    for (const product of [...results, ...restockResults]) {
+        const matchedAllStock = allStockResults.find(item => getProductKey(item) === getProductKey(product))
+        if (matchedAllStock) {
+            matchedAllStock.transferQuantity = product.transferQuantity
+            syncTransferQuantityAcrossLists(getProductKey(product), product.transferQuantity)
+        }
+    }
+
+    for (const product of results) {
+        syncTransferQuantityAcrossLists(getProductKey(product), product.transferQuantity)
+    }
+
     renderResults()
 
     statusEl.className = 'status'
@@ -405,19 +452,26 @@ function analyzeStock() {
 function renderResults() {
     if (activeList === 'transfer') {
         const transferItems = getTransferItems()
+        const excludedTransferItems = getNotInTransferItems()
         resultsPanel.hidden = true
         transferPanel.hidden = false
         transferTab.textContent = `Перемещение ${transferItems.length}`
+        transferExcludedLink.hidden = transferView === 'excluded' || excludedTransferItems.length === 0
+        transferExcludedLink.textContent = `Не вошло в перемещение · ${excludedTransferItems.length}`
+        transferBackLink.hidden = transferView !== 'excluded'
+        transferTab.classList.add('is-active')
+        transferTab.setAttribute('aria-selected', 'true')
         centralTab.classList.remove('is-active')
         centralTab.setAttribute('aria-selected', 'false')
         restockTab.classList.remove('is-active')
         restockTab.setAttribute('aria-selected', 'false')
         allStockTab.classList.remove('is-active')
         allStockTab.setAttribute('aria-selected', 'false')
-        transferTab.classList.add('is-active')
-        transferTab.setAttribute('aria-selected', 'true')
         resultsPanel.setAttribute('aria-labelledby', 'centralTab')
-        renderTransferTable(transferItems)
+        renderTransferTable(
+            transferView === 'excluded' ? excludedTransferItems : transferItems,
+            transferView === 'excluded',
+        )
         fileName.textContent = selectedFileName
         return
     }
@@ -432,7 +486,7 @@ function renderResults() {
     const isCentralList = activeList === 'central'
     const isCentralExceptionsList = activeList === 'central-exceptions'
     const isRestockList = activeList === 'restock' || activeList === 'exceptions'
-    const isMoveEditable = isCentralList || activeList === 'restock'
+    const isMoveEditable = isCentralList || activeList === 'restock' || isAllStockList
     const isExceptionsList = isCentralExceptionsList || activeList === 'exceptions'
     const activeResults = isAllStockList
         ? allStockResults
@@ -459,7 +513,17 @@ function renderResults() {
     resultsHeadings.replaceChildren()
 
     const headings = isAllStockList
-        ? ['Название', 'Аккорд', 'ЦС', 'Ремонт', 'Продажа', 'Закупка', 'Штрих код', 'Поставщик']
+        ? [
+              'Название',
+              'Ак',
+              'ЦС',
+              'Рем',
+              'Продажа',
+              'Закупка',
+              'Штрих код',
+              'Поставщик',
+              ...(isMoveEditable ? ['Перемещение'] : []),
+          ]
         : isRestockList
           ? ['Товар', 'Штрихкод', 'Аккорд', 'ЦС', 'Цена', ...(isMoveEditable ? ['Перемещение'] : [])]
           : ['Товар', 'Штрихкод', 'ЦС', 'Цена', ...(isMoveEditable ? ['Перемещение'] : [])]
@@ -486,6 +550,9 @@ function renderResults() {
             addCell(tr, formatPrice(product.purchasePrice))
             addCell(tr, product.barcode)
             addCell(tr, product.supplier)
+            if (isMoveEditable) {
+                addTransferQuantityCell(tr, product)
+            }
         } else {
             addCell(tr, product.name)
             addCell(tr, product.barcode)
@@ -552,8 +619,26 @@ function renderResults() {
 }
 
 function getTransferItems() {
+    const seen = new Set()
+    return [...results, ...restockResults, ...allStockResults]
+        .filter(product => {
+            const key = getProductKey(product)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return parseStock(product.transferQuantity) > 0
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
+}
+
+function getNotInTransferItems() {
+    const seen = new Set()
     return [...results, ...restockResults]
-        .filter(product => parseStock(product.transferQuantity) > 0)
+        .filter(product => {
+            const key = getProductKey(product)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return parseStock(product.transferQuantity) <= 0
+        })
         .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
 }
 
@@ -561,15 +646,22 @@ function updateTransferCount() {
     transferTab.textContent = `Перемещение ${getTransferItems().length}`
 }
 
-function renderTransferTable(products) {
+function renderTransferTable(products, isExcludedList = false) {
     transferBody.replaceChildren()
     for (const product of products) {
         const row = document.createElement('tr')
         addCell(row, product.name)
-        addCell(row, formatPrice(product.price))
-        addTransferQuantityCell(row, product, true)
+        addCell(row, formatPrice(product.price ?? product.salePrice ?? product.purchasePrice ?? ''))
+        if (isExcludedList) {
+            addCell(row, '')
+        } else {
+            addTransferQuantityCell(row, product, true)
+        }
         transferBody.appendChild(row)
     }
+    transferEmptyMessage.textContent = isExcludedList
+        ? 'Товаров, не вошедших в перемещение, не найдено.'
+        : 'В таблице на перемещение пока нет товаров.'
     transferEmptyMessage.hidden = products.length !== 0
     transferExportBtn.disabled = products.length === 0
     transferPrintBtn.disabled = products.length === 0
@@ -585,8 +677,9 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
     quantityInput.type = 'number'
     quantityInput.min = '0'
     quantityInput.step = 'any'
-    const maxQuantity = Math.max(0, parseStock(product.centralStock ?? product.stock) ?? 0)
-    const initialQuantity = Math.min(maxQuantity, Math.max(0, parseStock(product.transferQuantity) ?? 1))
+    const maxQuantity = Math.max(0, parseStock(product.centralStock ?? product.stock ?? product.storeStock) ?? 0)
+    const currentQuantity = parseStock(product.transferQuantity) ?? 0
+    const initialQuantity = Math.max(0, currentQuantity)
     quantityInput.max = String(maxQuantity)
     quantityInput.value = String(initialQuantity)
     product.transferQuantity = quantityInput.value
@@ -598,6 +691,7 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
             quantityInput.value = String(Math.min(maxQuantity, Math.max(0, enteredQuantity)))
         }
         product.transferQuantity = quantityInput.value
+        syncTransferQuantityAcrossLists(getProductKey(product), product.transferQuantity)
         updateTransferCount()
         if (activeList === 'transfer') {
             const hasTransferItems = getTransferItems().length > 0
@@ -697,7 +791,7 @@ function formatExportDate() {
 function getTransferExportData() {
     const transferItems = getTransferItems()
     return [
-        ['Название', 'Цена', 'Кол-во', 'Цена'],
+        ['Название', 'Цена ЦС', 'Кол-во', 'Цена Ак'],
         ...transferItems.map(product => [
             product.name,
             formatPrice(product.price),
@@ -712,11 +806,11 @@ function exportTransferResults() {
     if (!transferItems.length) return
 
     const worksheet = XLSX.utils.aoa_to_sheet(getTransferExportData())
-    worksheet['!cols'] = [{ wch: 40 }, { wch: 10 }, { wch: 4 }, { wch: 10 }]
+    worksheet['!cols'] = [{ wch: 40 }, { wch: 12 }, { wch: 10 }, { wch: 12 }]
 
     const exportWorkbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(exportWorkbook, worksheet, 'Перемещение')
-    XLSX.writeFile(exportWorkbook, `Перемещение ${formatExportDate()}.xlsx`)
+    XLSX.utils.book_append_sheet(exportWorkbook, worksheet, 'Накладная на перемещение')
+    XLSX.writeFile(exportWorkbook, `Накладная на перемещение ${formatExportDate()}.xlsx`)
 }
 
 function printTransferResults() {
@@ -729,18 +823,55 @@ function printTransferResults() {
         return
     }
 
-    const rows = transferItems
-        .map(
-            product => `
-    <tr>
-      <td>${escapeHtml(product.name)}</td>
-            <td>${escapeHtml(formatPrice(product.price))}</td>
-      <td>${escapeHtml(product.transferQuantity)}</td>
-    <td></td>
-    </tr>
-  `,
-        )
+    const totalQuantity = transferItems.reduce((sum, product) => sum + (parseStock(product.transferQuantity) ?? 0), 0)
+    const totalAmount = transferItems.reduce(
+        (sum, product) => sum + (parseStock(product.transferQuantity) ?? 0) * (parseStock(product.price) ?? 0),
+        0,
+    )
+
+    const itemRows = transferItems
+        .map((product, index) => {
+            const quantity = parseStock(product.transferQuantity) ?? 0
+            const barcodeValue = String(product.barcode ?? '').trim()
+            const barcodeId = `barcode-${index}`
+            const barcodeFormat =
+                barcodeValue && /^\d+$/.test(barcodeValue)
+                    ? barcodeValue.length === 13
+                        ? 'EAN13'
+                        : 'CODE128'
+                    : 'CODE128'
+            const barcodeMarkup = barcodeValue
+                ? `<svg id="${barcodeId}" class="print-barcode" data-barcode-code="${escapeHtml(barcodeValue)}" aria-label="Штрихкод товара ${escapeHtml(product.name)}"></svg>`
+                : '<div class="print-barcode empty-barcode"></div>'
+
+            return `
+              <tr>
+                <td class="product-name-cell">
+                  <div class="print-product-name-wrapper">
+                    <span class="print-product-name">${escapeHtml(product.name)}</span>
+                    <span class="print-product-barcode">${barcodeMarkup}</span>
+                  </div>
+                </td>
+                <td class="price-cell">${escapeHtml(formatPrice(product.price))}</td>
+                <td class="qty-cell">${escapeHtml(String(quantity))}</td>
+                <td class="empty-price-cell">&nbsp;</td>
+              </tr>
+            `
+        })
         .join('')
+
+    const blankRows = Array.from(
+        { length: 12 },
+        () => `
+      <tr>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    `,
+    ).join('')
+
     const printDate = new Intl.DateTimeFormat('ru-RU', {
         day: '2-digit',
         month: '2-digit',
@@ -751,36 +882,156 @@ function printTransferResults() {
     <html lang="ru">
       <head>
         <meta charset="UTF-8">
-                <title>Перемещение ${printDate}</title>
+        <title>Накладная на перемещение ${printDate}</title>
         <style>
-                    @page { margin: 0; }
-                    body { margin: 0; padding: 16mm; font-family: Arial, Helvetica, sans-serif; color: #202124; }
-                    .print-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-                    h1 { margin: 0; font-size: 18px; font-weight: 700; }
-                    .print-date { font-size: 14px; font-weight: 400; }
-          table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; }
-          th:nth-child(1), td:nth-child(1) { width: 62%; }
-          th:nth-child(2), td:nth-child(2), th:nth-child(4), td:nth-child(4) { width: 12%; }
-          th:nth-child(3), td:nth-child(3) { width: 7%; }
-          th, td { padding: 8px; border: 1px solid #999; font-size: 12px; }
-          th { background: #f2f2f2; }
+          @page { margin: 0; size: A4 portrait; }
+          body {
+            margin: 0;
+            padding: 16mm;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #202124;
+          }
+          .print-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 14px;
+          }
+          h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+          }
+          .print-date {
+            font-size: 14px;
+            font-weight: 400;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            text-align: left;
+          }
+          th:nth-child(1), td:nth-child(1) { width: 78%; }
+          th:nth-child(2), td:nth-child(2) { width: 8%; }
+          th:nth-child(3), td:nth-child(3) { width: 4%; }
+          th:nth-child(4), td:nth-child(4) { width: 10%; }
+          th, td {
+            padding: 5px 7px;
+            border: 1px solid #999;
+            font-size: 12px;
+            height: 18px;
+            vertical-align: middle;
+          }
+          th {
+            background: #f2f2f2;
+            font-weight: 700;
+          }
+          .summary-row td {
+            font-weight: 700;
+            background: #fafafa;
+          }
+          .product-name-cell {
+            padding: 0;
+            border-left: 1px solid #999;
+          }
+          .print-product-name-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            min-height: 28px;
+            padding: 4px 6px;
+          }
+          .print-product-name {
+            font-weight: 400;
+            line-height: 1.3;
+            flex: 1 1 auto;
+            white-space: normal;
+            min-width: 0;
+          }
+          .print-product-barcode {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            min-width: 80px;
+            width: 80px;
+            padding: 0;
+            border: none;
+            background: transparent;
+          }
+          .print-barcode {
+            display: block;
+            width: 100%;
+            max-width: 80px;
+            height: 22px;
+            background: #fff;
+          }
+          .empty-barcode {
+            width: 80px;
+            height: 22px;
+            border: none;
+          }
+          .price-cell,
+          .qty-cell,
+          .empty-price-cell {
+            text-align: left;
+          }
           @media print {
-                        @page { margin: 0; }
-                        body { margin: 0; padding: 16mm; }
+            body { margin: 0; padding: 16mm; }
             th { background: #f2f2f2 !important; print-color-adjust: exact; }
           }
         </style>
       </head>
       <body>
-                <header class="print-header">
-                    <h1>Перемещение</h1>
-                    <span class="print-date">${printDate}</span>
-                </header>
+        <header class="print-header">
+          <h1>Накладная на перемещение</h1>
+          <span class="print-date">${printDate}</span>
+        </header>
         <table>
-                    <thead><tr><th>Название</th><th>Цена</th><th>Кол-во</th><th>Цена</th></tr></thead>
-          <tbody>${rows}</tbody>
+          <thead>
+            <tr>
+              <th>Название</th>
+              <th>Цена ЦС</th>
+              <th>Кол.</th>
+              <th>Цена Ак</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+            <tr class="summary-row">
+              <td>Итого</td>
+              <td>${escapeHtml(formatPrice(totalAmount))}</td>
+              <td>${escapeHtml(String(totalQuantity))}</td>
+              <td>&nbsp;</td>
+            </tr>
+            ${blankRows}
+          </tbody>
         </table>
-        <script>window.onload = () => { window.focus(); window.print(); };</script>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+        <script>
+          window.onload = () => {
+            const barcodes = Array.from(document.querySelectorAll('.print-barcode'));
+            barcodes.forEach(svg => {
+              const code = svg.dataset.barcodeCode || '';
+              if (code) {
+                const format = /^\d+$/.test(code) ? (code.length === 13 ? 'EAN13' : 'CODE128') : 'CODE128';
+                JsBarcode(svg, code, {
+                  format,
+                  displayValue: false,
+                  width: 1.2,
+                  height: 32,
+                  margin: 0,
+                  background: '#fff',
+                  lineColor: '#000'
+                });
+              }
+            });
+            window.focus();
+            window.print();
+          };
+        </script>
       </body>
     </html>`)
     printWindow.document.close()
