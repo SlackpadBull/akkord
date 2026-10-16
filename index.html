@@ -97,6 +97,18 @@
                         </table>
                     </div>
 
+                    <div id="stopSection" class="stop-section" hidden>
+                        <h3 class="stop-title">На стопе</h3>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr id="stopResultsHeadings"></tr>
+                                </thead>
+                                <tbody id="stopResultsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <p id="emptyMessage" class="empty-message" hidden></p>
                 </div>
 
@@ -122,7 +134,8 @@
                             <thead>
                                 <tr>
                                     <th>Название</th>
-                                    <th>Цена</th>
+                                    <th class="central-stock-column">ЦС</th>
+                                    <th class="price-column">Цена</th>
                                     <th class="same-width-column">Перемещение</th>
                                 </tr>
                             </thead>
