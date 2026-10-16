@@ -48,6 +48,17 @@ const RESTOCK_ALLOWLIST = [
     'береза лиственница бук',
 ]
 
+const STOP_ITEMS = [
+    // На стопе «Только на центральном»
+    'Тюнер',
+    'Комплект Ronnie wood с вырезом Bls',
+    'Кабель Standard Cable 3m STR/ANG',
+    'Кабель Standard Cable 3m STR/STR',
+    'Гитара Adagio 7000',
+    'Тюнер Китай 7444 Арома',
+    'Чехол для укулеле сопрано',
+]
+
 const CENTRAL_EXCLUSIONS = [
     // Исключения «Только на центральном»
     'Электрогитара G110',
@@ -68,6 +79,9 @@ const statusEl = document.getElementById('status')
 const resultsSection = document.getElementById('results')
 const resultsBody = document.getElementById('resultsBody')
 const resultsHeadings = document.getElementById('resultsHeadings')
+const stopSection = document.getElementById('stopSection')
+const stopResultsHeadings = document.getElementById('stopResultsHeadings')
+const stopResultsBody = document.getElementById('stopResultsBody')
 const emptyMessage = document.getElementById('emptyMessage')
 const resultsTitle = document.getElementById('resultsTitle')
 const exceptionsAllowedInfo = document.getElementById('exceptionsAllowedInfo')
@@ -95,6 +109,7 @@ let excludedCentralResults = []
 let restockResults = []
 let excludedRestockResults = []
 let allStockResults = []
+let stopResults = []
 let activeList = 'central'
 let transferView = 'items'
 let selectedFileName = ''
@@ -108,6 +123,7 @@ fileInput.addEventListener('change', async () => {
     restockResults = []
     excludedRestockResults = []
     allStockResults = []
+    stopResults = []
     activeList = 'central'
     transferView = 'items'
     centralTab.classList.add('is-active')
@@ -194,7 +210,14 @@ function getProductKey(product) {
 function syncTransferQuantityAcrossLists(productKey, quantity) {
     const normalized = String(quantity ?? '')
 
-    for (const list of [results, excludedCentralResults, restockResults, excludedRestockResults, allStockResults]) {
+    for (const list of [
+        results,
+        stopResults,
+        excludedCentralResults,
+        restockResults,
+        excludedRestockResults,
+        allStockResults,
+    ]) {
         for (const item of list) {
             if (getProductKey(item) === productKey) {
                 item.transferQuantity = normalized
@@ -258,6 +281,11 @@ function isRestockAllowed(name) {
 function hasCentralExclusion(name) {
     const normalizedName = normalizeText(name).toLocaleLowerCase('ru')
     return CENTRAL_EXCLUSIONS.some(exclusion => normalizedName.includes(exclusion.toLocaleLowerCase('ru')))
+}
+
+function isStopItem(name) {
+    const normalizedName = normalizeText(name).trim()
+    return STOP_ITEMS.some(stopItem => stopItem.localeCompare(normalizedName, 'ru', { sensitivity: 'base' }) === 0)
 }
 
 function analyzeStock() {
@@ -381,6 +409,7 @@ function analyzeStock() {
     excludedCentralResults = []
     restockResults = []
     excludedRestockResults = []
+    stopResults = []
     allStockResults = Array.from(allProducts.values()).map(product => ({
         ...product,
         price: product.salePrice ?? product.purchasePrice ?? '',
@@ -396,11 +425,14 @@ function analyzeStock() {
                 barcode: product.barcode,
                 stock: product.centralStock,
                 price: product.price,
-                transferQuantity: '1',
+                transferQuantity: isStopItem(product.name) ? '' : '1',
+                isStopItem: isStopItem(product.name),
             }
 
             if (hasCentralExclusion(product.name)) {
                 excludedCentralResults.push(centralProduct)
+            } else if (centralProduct.isStopItem) {
+                stopResults.push(centralProduct)
             } else {
                 results.push(centralProduct)
             }
@@ -429,9 +461,10 @@ function analyzeStock() {
     excludedCentralResults.sort(sortByName)
     restockResults.sort(sortByName)
     excludedRestockResults.sort(sortByName)
+    stopResults.sort(sortByName)
     allStockResults.sort(sortByName)
 
-    for (const product of [...results, ...restockResults]) {
+    for (const product of [...results, ...stopResults, ...restockResults]) {
         const matchedAllStock = allStockResults.find(item => getProductKey(item) === getProductKey(product))
         if (matchedAllStock) {
             matchedAllStock.transferQuantity = product.transferQuantity
@@ -439,7 +472,7 @@ function analyzeStock() {
         }
     }
 
-    for (const product of results) {
+    for (const product of [...results, ...stopResults]) {
         syncTransferQuantityAcrossLists(getProductKey(product), product.transferQuantity)
     }
 
@@ -511,32 +544,34 @@ function renderResults() {
     exceptionsAllowedInfo.hidden = isCentralExceptionsList
     resultsBody.replaceChildren()
     resultsHeadings.replaceChildren()
+    stopResultsHeadings.replaceChildren()
+    stopResultsBody.replaceChildren()
 
     const headings = isAllStockList
-        ? [
-              'Название',
-              'Ак',
-              'ЦС',
-              'Рем',
-              'Продажа',
-              'Закупка',
-              'Штрих код',
-              'Поставщик',
-              ...(isMoveEditable ? ['Перемещение'] : []),
-          ]
+        ? ['Название', 'Ак', 'ЦС', 'Рем', 'Продажа', 'Штрих код', ...(isMoveEditable ? ['Перемещение'] : [])]
         : isRestockList
-          ? ['Товар', 'Штрихкод', 'Аккорд', 'ЦС', 'Цена', ...(isMoveEditable ? ['Перемещение'] : [])]
-          : ['Товар', 'Штрихкод', 'ЦС', 'Цена', ...(isMoveEditable ? ['Перемещение'] : [])]
-    for (const heading of headings) {
-        const th = document.createElement('th')
-        th.textContent = heading
-        if (['Аккорд', 'ЦС'].includes(heading)) {
-            th.classList.add('count-column')
-        } else if (heading === 'Перемещение') {
-            th.classList.add('same-width-column')
+          ? ['Товар', 'Ак', 'ЦС', 'Цена', 'Штрихкод', ...(isMoveEditable ? ['Перемещение'] : [])]
+          : ['Товар', 'ЦС', 'Цена', 'Штрихкод', ...(isMoveEditable ? ['Перемещение'] : [])]
+    const renderTableHeadings = tableHeadings => {
+        for (const heading of tableHeadings) {
+            const th = document.createElement('th')
+            th.textContent = heading
+            if (heading === 'ЦС') {
+                th.classList.add('central-stock-column')
+            } else if (['Ак', 'Рем'].includes(heading)) {
+                th.classList.add('count-column')
+            } else if (['Цена', 'Продажа'].includes(heading)) {
+                th.classList.add('price-column')
+            } else if (['Штрихкод', 'Штрих код'].includes(heading)) {
+                th.classList.add('barcode-column')
+            } else if (heading === 'Перемещение') {
+                th.classList.add('same-width-column')
+            }
+            tableHeadings === headings ? resultsHeadings.appendChild(th) : stopResultsHeadings.appendChild(th)
         }
-        resultsHeadings.appendChild(th)
     }
+
+    renderTableHeadings(headings)
 
     for (const product of activeResults) {
         const tr = document.createElement('tr')
@@ -547,35 +582,76 @@ function renderResults() {
             addCell(tr, formatStock(product.centralStock))
             addCell(tr, formatStock(product.repairStock))
             addCell(tr, formatPrice(product.salePrice))
-            addCell(tr, formatPrice(product.purchasePrice))
             addCell(tr, product.barcode)
-            addCell(tr, product.supplier)
             if (isMoveEditable) {
                 addTransferQuantityCell(tr, product)
             }
         } else {
             addCell(tr, product.name)
-            addCell(tr, product.barcode)
-            addCell(tr, formatStock(isRestockList ? product.storeStock : product.stock))
 
             if (isRestockList) {
+                addCell(tr, formatStock(product.storeStock))
                 addCell(tr, formatStock(product.centralStock))
+            } else {
+                addCell(tr, formatStock(product.stock))
             }
             addCell(tr, formatPrice(product.price))
+            addCell(tr, product.barcode)
             if (isMoveEditable) {
                 addTransferQuantityCell(tr, product)
             }
         }
 
         for (const [index, heading] of headings.entries()) {
-            if (['Аккорд', 'ЦС'].includes(heading)) {
+            if (heading === 'ЦС') {
+                tr.cells[index].classList.add('central-stock-column')
+            } else if (['Ак', 'Рем'].includes(heading)) {
                 tr.cells[index].classList.add('count-column')
+            } else if (['Цена', 'Продажа'].includes(heading)) {
+                tr.cells[index].classList.add('price-column')
+            } else if (['Штрихкод', 'Штрих код'].includes(heading)) {
+                tr.cells[index].classList.add('barcode-column')
             } else if (heading === 'Перемещение') {
                 tr.cells[index].classList.add('same-width-column')
             }
         }
 
         resultsBody.appendChild(tr)
+    }
+
+    if (isCentralList && stopResults.length > 0) {
+        stopSection.hidden = false
+        const stopHeadings = ['Название', 'Штрих код', 'ЦС', 'Цена', ...(isMoveEditable ? ['Перемещение'] : [])]
+        stopResultsHeadings.replaceChildren()
+        for (const heading of stopHeadings) {
+            const th = document.createElement('th')
+            th.textContent = heading
+            if (heading === 'ЦС') {
+                th.classList.add('central-stock-column')
+            } else if (['Цена', 'Продажа'].includes(heading)) {
+                th.classList.add('price-column')
+            } else if (['Штрихкод', 'Штрих код'].includes(heading)) {
+                th.classList.add('barcode-column')
+            } else if (heading === 'Перемещение') {
+                th.classList.add('same-width-column')
+            }
+            stopResultsHeadings.appendChild(th)
+        }
+
+        for (const product of stopResults) {
+            const tr = document.createElement('tr')
+            addCell(tr, product.name)
+            addCell(tr, product.barcode)
+            const stockCell = addCell(tr, formatStock(product.stock))
+            stockCell.classList.add('central-stock-column')
+            addCell(tr, formatPrice(product.price))
+            if (isMoveEditable) {
+                addTransferQuantityCell(tr, product)
+            }
+            stopResultsBody.appendChild(tr)
+        }
+    } else {
+        stopSection.hidden = true
     }
 
     resultsTitle.textContent = isAllStockList
@@ -620,19 +696,21 @@ function renderResults() {
 
 function getTransferItems() {
     const seen = new Set()
-    return [...results, ...restockResults, ...allStockResults]
+    return [...results, ...stopResults, ...restockResults, ...allStockResults]
         .filter(product => {
+            if (parseStock(product.transferQuantity) <= 0) return false
+
             const key = getProductKey(product)
             if (seen.has(key)) return false
             seen.add(key)
-            return parseStock(product.transferQuantity) > 0
+            return true
         })
         .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
 }
 
 function getNotInTransferItems() {
     const seen = new Set()
-    return [...results, ...restockResults]
+    return [...results, ...stopResults, ...restockResults]
         .filter(product => {
             const key = getProductKey(product)
             if (seen.has(key)) return false
@@ -651,9 +729,14 @@ function renderTransferTable(products, isExcludedList = false) {
     for (const product of products) {
         const row = document.createElement('tr')
         addCell(row, product.name)
-        addCell(row, formatPrice(product.price ?? product.salePrice ?? product.purchasePrice ?? ''))
+        const centralStock = parseStock(product.centralStock ?? product.stock) ?? 0
+        const centralStockCell = addCell(row, formatStock(centralStock))
+        centralStockCell.classList.add('central-stock-column')
+        const priceCell = addCell(row, formatPrice(product.price ?? product.salePrice ?? product.purchasePrice ?? ''))
+        priceCell.classList.add('price-column')
         if (isExcludedList) {
-            addCell(row, '')
+            const quantityCell = addCell(row, '')
+            quantityCell.className = 'transfer-quantity-cell same-width-column'
         } else {
             addTransferQuantityCell(row, product, true)
         }
@@ -685,9 +768,42 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
     product.transferQuantity = quantityInput.value
     quantityInput.setAttribute('aria-label', `Количество перемещения: ${product.name}`)
 
+    const quantityInputWrap = document.createElement('div')
+    quantityInputWrap.className = 'transfer-quantity-input-wrap'
+    const maxFeedback = document.createElement('span')
+    maxFeedback.className = 'transfer-max-feedback'
+    maxFeedback.textContent = 'Max'
+    maxFeedback.setAttribute('role', 'status')
+    maxFeedback.setAttribute('aria-live', 'polite')
+    maxFeedback.hidden = true
+    quantityInputWrap.append(quantityInput, maxFeedback)
+
+    let feedbackTimeout
+    const showLimitFeedback = () => {
+        const centralStockCell = row.querySelector('.central-stock-column')
+        if (centralStockCell) {
+            centralStockCell.classList.remove('is-limit-warning')
+            void centralStockCell.offsetWidth
+            centralStockCell.classList.add('is-limit-warning')
+        }
+
+        maxFeedback.hidden = false
+        maxFeedback.classList.remove('is-visible')
+        void maxFeedback.offsetWidth
+        maxFeedback.classList.add('is-visible')
+
+        clearTimeout(feedbackTimeout)
+        feedbackTimeout = setTimeout(() => {
+            centralStockCell?.classList.remove('is-limit-warning')
+            maxFeedback.classList.remove('is-visible')
+            maxFeedback.hidden = true
+        }, 2000)
+    }
+
     const updateQuantity = () => {
         const enteredQuantity = parseStock(quantityInput.value)
         if (enteredQuantity !== null) {
+            if (enteredQuantity > maxQuantity) showLimitFeedback()
             quantityInput.value = String(Math.min(maxQuantity, Math.max(0, enteredQuantity)))
         }
         product.transferQuantity = quantityInput.value
@@ -724,7 +840,11 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
     const adjustQuantity = delta => {
         const currentQuantity = parseStock(quantityInput.value) ?? 0
         const nextQuantity = currentQuantity + delta
-        if (nextQuantity < 0 || nextQuantity > maxQuantity) return
+        if (nextQuantity > maxQuantity) {
+            showLimitFeedback()
+            return
+        }
+        if (nextQuantity < 0) return
 
         quantityInput.value = String(nextQuantity)
         updateQuantity()
@@ -736,7 +856,7 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
     decrementButton.addEventListener('click', () => adjustQuantity(-1))
     incrementButton.addEventListener('click', () => adjustQuantity(1))
 
-    controls.append(quantityInput, decrementButton, incrementButton)
+    controls.append(quantityInputWrap, decrementButton, incrementButton)
     cell.appendChild(controls)
     row.appendChild(cell)
 }
@@ -770,6 +890,7 @@ function addCell(row, value) {
     const td = document.createElement('td')
     td.textContent = String(value ?? '')
     row.appendChild(td)
+    return td
 }
 
 function formatStock(value) {
@@ -817,8 +938,22 @@ function printTransferResults() {
     const transferItems = getTransferItems()
     if (!transferItems.length) return
 
-    const printWindow = window.open('', '_blank')
+    const printFrame = document.createElement('iframe')
+    printFrame.setAttribute('title', 'Печать накладной')
+    printFrame.setAttribute('aria-hidden', 'true')
+    printFrame.style.position = 'fixed'
+    printFrame.style.right = '0'
+    printFrame.style.bottom = '0'
+    printFrame.style.width = '0'
+    printFrame.style.height = '0'
+    printFrame.style.border = '0'
+    printFrame.style.opacity = '0'
+    printFrame.style.pointerEvents = 'none'
+    document.body.appendChild(printFrame)
+
+    const printWindow = printFrame.contentWindow
     if (!printWindow) {
+        document.body.removeChild(printFrame)
         setError('Не удалось открыть окно печати. Разрешите всплывающие окна и попробуйте снова.')
         return
     }
@@ -893,14 +1028,26 @@ function printTransferResults() {
           }
           .print-header {
             display: flex;
-            align-items: baseline;
+            align-items: flex-start;
             justify-content: space-between;
-            margin-bottom: 14px;
+            gap: 12px;
+            margin-bottom: 12px;
+          }
+          .print-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
           }
           h1 {
             margin: 0;
             font-size: 18px;
             font-weight: 700;
+          }
+          .print-note {
+            margin: 0;
+            font-size: 9px;
+            line-height: 1.3;
+            color: #5f6368;
           }
           .print-date {
             font-size: 14px;
@@ -986,7 +1133,10 @@ function printTransferResults() {
       </head>
       <body>
         <header class="print-header">
-          <h1>Накладная на перемещение</h1>
+          <div class="print-header-left">
+            <h1>Накладная на перемещение</h1>
+            <p class="print-note">Если цена отличается от ЦС, выделить маркером и отправить в реализацию</p>
+          </div>
           <span class="print-date">${printDate}</span>
         </header>
         <table>
@@ -1030,6 +1180,12 @@ function printTransferResults() {
             });
             window.focus();
             window.print();
+            setTimeout(() => {
+              const iframe = document.querySelector('iframe[title="Печать накладной"]');
+              if (iframe) {
+                iframe.parentNode.removeChild(iframe);
+              }
+            }, 1000);
           };
         </script>
       </body>
