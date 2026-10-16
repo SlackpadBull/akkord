@@ -164,6 +164,84 @@ button:disabled {
     gap: 8px;
 }
 
+.print-position-dialog {
+    width: min(360px, calc(100% - 32px));
+    padding: 20px;
+    border: 1px solid #d9d9d4;
+    border-radius: 8px;
+    color: #202124;
+}
+
+.print-position-dialog::backdrop {
+    background: rgb(32 33 36 / 35%);
+}
+
+.print-position-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.print-position-cancel {
+    min-height: 36px;
+    padding: 0 10px;
+    background: transparent;
+    color: #626269;
+}
+
+.print-position-cancel:hover:not(:disabled) {
+    background: #f3f3f7;
+}
+
+.print-position-options {
+    display: grid;
+    gap: 10px;
+}
+
+.print-position-option {
+    display: flex;
+    min-height: 72px;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: 8px 14px;
+    border: 1px solid #d9d9d4;
+    border-radius: 6px;
+    background: #fff;
+    color: #34343b;
+}
+
+.print-position-option:hover {
+    border-color: #5b5cf6;
+    background: #fafaff;
+}
+
+.print-sheet-preview {
+    display: flex;
+    width: 38px;
+    height: 52px;
+    flex: 0 0 38px;
+    flex-direction: column;
+    padding: 3px;
+    border: 1px solid #a5a5ad;
+    border-radius: 2px;
+}
+
+.print-sheet-half {
+    flex: 1;
+}
+
+.print-sheet-preview.is-top .print-sheet-half:first-child,
+.print-sheet-preview.is-bottom .print-sheet-half:last-child {
+    background: #b8e3d2;
+}
+
+.print-sheet-half + .print-sheet-half {
+    border-top: 1px dashed #d9d9d4;
+}
+
 .transfer-quantity {
     width: 58px;
     max-width: 100%;
