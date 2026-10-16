@@ -99,6 +99,7 @@ const transferBody = document.getElementById('transferBody')
 const transferEmptyMessage = document.getElementById('transferEmptyMessage')
 const transferExportBtn = document.getElementById('transferExportBtn')
 const transferPrintBtn = document.getElementById('transferPrintBtn')
+const transferPrintDialog = document.getElementById('transferPrintDialog')
 const transferExcludedLink = document.getElementById('transferExcludedLink')
 const transferBackLink = document.getElementById('transferBackLink')
 const exceptionsInfo = document.getElementById('exceptionsInfo')
@@ -176,7 +177,14 @@ fileInput.addEventListener('change', async () => {
 
 exportBtn.addEventListener('click', exportResults)
 transferExportBtn.addEventListener('click', exportTransferResults)
-transferPrintBtn.addEventListener('click', printTransferResults)
+transferPrintBtn.addEventListener('click', requestTransferPrint)
+transferPrintDialog.querySelectorAll('[data-print-position]').forEach(button => {
+    button.addEventListener('click', () => {
+        const position = button.dataset.printPosition
+        transferPrintDialog.close()
+        printTransferResults(position)
+    })
+})
 centralTab.addEventListener('click', () => selectResultsTab('central'))
 restockTab.addEventListener('click', () => selectResultsTab('restock'))
 allStockTab.addEventListener('click', () => selectResultsTab('all-stock'))
@@ -936,7 +944,14 @@ function exportTransferResults() {
     XLSX.writeFile(exportWorkbook, `Накладная на перемещение ${formatExportDate()}.xlsx`)
 }
 
-function printTransferResults() {
+function requestTransferPrint() {
+    const transferItems = getTransferItems()
+    if (!transferItems.length) return
+
+    printTransferResults()
+}
+
+function printTransferResults(position = null) {
     const transferItems = getTransferItems()
     if (!transferItems.length) return
 
@@ -944,10 +959,10 @@ function printTransferResults() {
     printFrame.setAttribute('title', 'Печать накладной')
     printFrame.setAttribute('aria-hidden', 'true')
     printFrame.style.position = 'fixed'
-    printFrame.style.right = '0'
-    printFrame.style.bottom = '0'
-    printFrame.style.width = '0'
-    printFrame.style.height = '0'
+    printFrame.style.left = '-10000px'
+    printFrame.style.top = '0'
+    printFrame.style.width = '210mm'
+    printFrame.style.height = '297mm'
     printFrame.style.border = '0'
     printFrame.style.opacity = '0'
     printFrame.style.pointerEvents = 'none'
@@ -966,22 +981,17 @@ function printTransferResults() {
         0,
     )
 
-    const itemRows = transferItems
-        .map((product, index) => {
-            const quantity = parseStock(product.transferQuantity) ?? 0
-            const barcodeValue = String(product.barcode ?? '').trim()
-            const barcodeId = `barcode-${index}`
-            const barcodeFormat =
-                barcodeValue && /^\d+$/.test(barcodeValue)
-                    ? barcodeValue.length === 13
-                        ? 'EAN13'
-                        : 'CODE128'
-                    : 'CODE128'
-            const barcodeMarkup = barcodeValue
-                ? `<svg id="${barcodeId}" class="print-barcode" data-barcode-code="${escapeHtml(barcodeValue)}" aria-label="Штрихкод товара ${escapeHtml(product.name)}"></svg>`
-                : '<div class="print-barcode empty-barcode"></div>'
+    const itemRows = transferItems.map((product, index) => {
+        const quantity = parseStock(product.transferQuantity) ?? 0
+        const barcodeValue = String(product.barcode ?? '').trim()
+        const barcodeId = `barcode-${index}`
+        const barcodeFormat =
+            barcodeValue && /^\d+$/.test(barcodeValue) ? (barcodeValue.length === 13 ? 'EAN13' : 'CODE128') : 'CODE128'
+        const barcodeMarkup = barcodeValue
+            ? `<svg id="${barcodeId}" class="print-barcode" data-barcode-code="${escapeHtml(barcodeValue)}" aria-label="Штрихкод товара ${escapeHtml(product.name)}"></svg>`
+            : '<div class="print-barcode empty-barcode"></div>'
 
-            return `
+        return `
               <tr>
                 <td class="product-name-cell">
                   <div class="print-product-name-wrapper">
@@ -994,26 +1004,61 @@ function printTransferResults() {
                 <td class="empty-price-cell">&nbsp;</td>
               </tr>
             `
-        })
-        .join('')
-
-    const blankRows = Array.from(
-        { length: 12 },
-        () => `
-      <tr>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-      </tr>
-    `,
-    ).join('')
+    })
 
     const printDate = new Intl.DateTimeFormat('ru-RU', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
     }).format(new Date())
+
+    const pageMarkup = Array.from({ length: Math.ceil(transferItems.length / 48) }, (_, pageIndex) => {
+        const firstItemIndex = pageIndex * 48
+        const pageItems = itemRows.slice(firstItemIndex, firstItemIndex + 48).join('')
+        const isLastPage = pageIndex === Math.ceil(transferItems.length / 48) - 1
+        const pageTitle = pageIndex === 0 ? 'Накладная на перемещение' : `Накладная на перемещение №${pageIndex + 1}`
+        const summaryRow = isLastPage
+            ? `
+                                <tr class="summary-row">
+                                    <td class="summary-values-cell">
+                                        <span class="summary-values">
+                                            <span class="summary-value">${escapeHtml(formatPrice(totalAmount))}</span>
+                                            <span class="summary-value">${escapeHtml(String(totalQuantity))}</span>
+                                        </span>
+                                    </td>
+                                    <td>&nbsp;</td>
+                                    <td>&nbsp;</td>
+                                    <td>&nbsp;</td>
+                                </tr>
+                            `
+            : ''
+
+        return `
+                    <main class="print-page">
+                        <div class="print-offset" aria-hidden="true"></div>
+                        <section class="print-content">
+                            <header class="print-header ${pageIndex > 0 ? 'print-header-continuation' : ''}">
+                                <div class="print-header-left">
+                                    <h1>${pageTitle}</h1>
+                                    <p class="print-note">Если цена отличается от ЦС, выделить маркером и отправить в реализацию</p>
+                                </div>
+                                <span class="print-date">${printDate}</span>
+                            </header>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Цена ЦС</th>
+                                        <th>Кол.</th>
+                                        <th>Цена Ак</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${pageItems}${summaryRow}</tbody>
+                            </table>
+                        </section>
+                    </main>
+                `
+    }).join('')
 
     printWindow.document.write(`<!DOCTYPE html>
     <html lang="ru">
@@ -1022,12 +1067,22 @@ function printTransferResults() {
         <title>Накладная на перемещение ${printDate}</title>
         <style>
           @page { margin: 0; size: A4 portrait; }
-          body {
+                    body {
             margin: 0;
             padding: 16mm;
             font-family: Arial, Helvetica, sans-serif;
             color: #202124;
           }
+                                        .print-page {
+                                            height: 265mm;
+                                            break-after: page;
+                                            page-break-after: always;
+                                        }
+                                        .print-page:last-of-type {
+                                            break-after: auto;
+                                            page-break-after: auto;
+                                        }
+                    .print-offset { height: 0; }
           .print-header {
             display: flex;
             align-items: flex-start;
@@ -1035,6 +1090,7 @@ function printTransferResults() {
             gap: 12px;
             margin-bottom: 12px;
           }
+                    .print-header-continuation { padding-top: 14mm; }
           .print-header-left {
             display: flex;
             flex-direction: column;
@@ -1066,20 +1122,29 @@ function printTransferResults() {
           th:nth-child(3), td:nth-child(3) { width: 4%; }
           th:nth-child(4), td:nth-child(4) { width: 10%; }
           th, td {
-            padding: 5px 7px;
+                        padding: 1.5px 4px;
             border: 1px solid #999;
-            font-size: 12px;
-            height: 18px;
+                        font-size: 10px;
+                        line-height: 1.15;
+                        height: 14px;
             vertical-align: middle;
           }
+                    thead { display: table-header-group; }
+                    tr { break-inside: avoid; }
           th {
             background: #f2f2f2;
             font-weight: 700;
           }
           .summary-row td {
-            font-weight: 700;
+                        font-weight: 400;
             background: #fafafa;
           }
+                    .summary-value {
+                        color: #bdbdbd;
+                        font-size: 8px;
+                    }
+                    .summary-values-cell { text-align: right; }
+                    .summary-values { display: inline-flex; gap: 10px; }
           .product-name-cell {
             padding: 0;
             border-left: 1px solid #999;
@@ -1089,8 +1154,8 @@ function printTransferResults() {
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            min-height: 28px;
-            padding: 4px 6px;
+            min-height: 16px;
+            padding: 0 4px;
           }
           .print-product-name {
             font-weight: 400;
@@ -1104,8 +1169,8 @@ function printTransferResults() {
             align-items: center;
             justify-content: center;
             flex: 0 0 auto;
-            min-width: 80px;
-            width: 80px;
+            min-width: 58px;
+            width: 58px;
             padding: 0;
             border: none;
             background: transparent;
@@ -1113,13 +1178,13 @@ function printTransferResults() {
           .print-barcode {
             display: block;
             width: 100%;
-            max-width: 80px;
-            height: 22px;
+            max-width: 58px;
+            height: 15px;
             background: #fff;
           }
           .empty-barcode {
-            width: 80px;
-            height: 22px;
+            width: 58px;
+            height: 15px;
             border: none;
           }
           .price-cell,
@@ -1133,41 +1198,14 @@ function printTransferResults() {
           }
         </style>
       </head>
-      <body>
-        <header class="print-header">
-          <div class="print-header-left">
-            <h1>Накладная на перемещение</h1>
-            <p class="print-note">Если цена отличается от ЦС, выделить маркером и отправить в реализацию</p>
-          </div>
-          <span class="print-date">${printDate}</span>
-        </header>
-        <table>
-          <thead>
-            <tr>
-              <th>Название</th>
-              <th>Цена ЦС</th>
-              <th>Кол.</th>
-              <th>Цена Ак</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemRows}
-            <tr class="summary-row">
-              <td>Итого</td>
-              <td>${escapeHtml(formatPrice(totalAmount))}</td>
-              <td>${escapeHtml(String(totalQuantity))}</td>
-              <td>&nbsp;</td>
-            </tr>
-            ${blankRows}
-          </tbody>
-        </table>
+                        <body>${pageMarkup}
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
         <script>
           window.onload = () => {
             const barcodes = Array.from(document.querySelectorAll('.print-barcode'));
             barcodes.forEach(svg => {
               const code = svg.dataset.barcodeCode || '';
-              if (code) {
+                if (code && typeof JsBarcode === 'function') {
                 const format = /^\d+$/.test(code) ? (code.length === 13 ? 'EAN13' : 'CODE128') : 'CODE128';
                 JsBarcode(svg, code, {
                   format,
@@ -1180,13 +1218,48 @@ function printTransferResults() {
                 });
               }
             });
+                        const printPages = Array.from(document.querySelectorAll('.print-page'));
+                        const firstContent = printPages[0].querySelector('.print-content');
+                        const halfPageHeight = printPages[0].clientHeight / 2;
+                        const fitsHalfPage = firstContent.getBoundingClientRect().height <= halfPageHeight;
+
+                        if (printPages.length === 1 && fitsHalfPage && !${position ? 'true' : 'false'}) {
+                            window.parent.document.getElementById('transferPrintDialog').showModal();
+                            window.frameElement.remove();
+                            return;
+                        }
+
+                        printPages.forEach((printPage, pageIndex) => {
+                            const printContent = printPage.querySelector('.print-content');
+                            const printOffset = printPage.querySelector('.print-offset');
+                            const tableBody = printPage.querySelector('tbody');
+                            const pageHeight = printPage.clientHeight;
+                            const pageHalfHeight = pageHeight / 2;
+                            const pageFitsHalf = printContent.getBoundingClientRect().height <= pageHalfHeight;
+                            const isLastPage = pageIndex === printPages.length - 1;
+                            const targetHeight = isLastPage && pageFitsHalf ? pageHalfHeight : pageHeight;
+
+                            if (printPages.length === 1 && pageFitsHalf && '${position}' === 'bottom') {
+                                printOffset.style.height = pageHalfHeight + 'px';
+                            }
+
+                            if (isLastPage) {
+                                while (printContent.getBoundingClientRect().height < targetHeight) {
+                                    const blankRow = document.createElement('tr');
+                                    blankRow.innerHTML = '<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>';
+                                    tableBody.appendChild(blankRow);
+                                    if (printContent.getBoundingClientRect().height > targetHeight) {
+                                        blankRow.remove();
+                                        break;
+                                    }
+                                }
+                            }
+                        })
+
             window.focus();
             window.print();
             setTimeout(() => {
-              const iframe = document.querySelector('iframe[title="Печать накладной"]');
-              if (iframe) {
-                iframe.parentNode.removeChild(iframe);
-              }
+                            if (window.frameElement) window.frameElement.remove();
             }, 1000);
           };
         </script>
