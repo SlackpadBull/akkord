@@ -5,12 +5,13 @@
 :root {
     font-family: Arial, Helvetica, sans-serif;
     color: #202124;
-    background: #f5f5f2;
+    background: #fff;
     font-synthesis: none;
 }
 
 html {
-    scrollbar-color: #a5a5ad #f1f1ef;
+    scrollbar-color: #a5a5ad #fff;
+    background: #fff;
 }
 
 html::-webkit-scrollbar {
@@ -18,11 +19,11 @@ html::-webkit-scrollbar {
 }
 
 html::-webkit-scrollbar-track {
-    background: #f1f1ef;
+    background: #fff;
 }
 
 html::-webkit-scrollbar-thumb {
-    border: 3px solid #f1f1ef;
+    border: 3px solid #fff;
     border-radius: 8px;
     background: #a5a5ad;
 }
@@ -34,13 +35,18 @@ html::-webkit-scrollbar-thumb:hover {
 body {
     margin: 0;
     min-width: 320px;
+    background: #fff;
 }
 
 .container {
     display: flex;
     min-height: 100vh;
     flex-direction: column;
-    padding: 36px max(24px, calc((100vw - 1100px) / 2));
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px 10px 0;
+    background: #fff;
 }
 
 h2 {
@@ -51,10 +57,7 @@ h2 {
 
 .upload-section,
 #results {
-    padding: 24px;
     background: #fff;
-    border: 1px solid #e7e7e3;
-    border-radius: 12px;
 }
 
 .upload-section {
@@ -63,6 +66,7 @@ h2 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding-bottom: 24px;
 }
 
 .file-label {
@@ -170,6 +174,15 @@ button:disabled {
     color: #202124;
     font: inherit;
     text-align: center;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.transfer-quantity::-webkit-inner-spin-button,
+.transfer-quantity::-webkit-outer-spin-button {
+    margin: 0;
+    display: none;
+    -webkit-appearance: none;
 }
 
 .transfer-quantity:focus {
@@ -185,6 +198,65 @@ button:disabled {
     gap: 0px;
 }
 
+.transfer-quantity-input-wrap {
+    position: relative;
+    display: flex;
+    width: 58px;
+    height: 40px;
+    flex: 0 0 58px;
+    align-items: center;
+}
+
+.transfer-max-feedback {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    color: #b42318;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 12px;
+    pointer-events: none;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.transfer-max-feedback.is-visible {
+    animation: transfer-max-float 1s ease-out both;
+}
+
+@keyframes transfer-max-float {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, 5px);
+    }
+    12% {
+        opacity: 1;
+        transform: translate(-50%, 3px);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -8px);
+    }
+}
+
+.central-stock-column.is-limit-warning {
+    color: #b42318 !important;
+    animation: central-stock-shake 380ms ease-in-out;
+}
+
+@keyframes central-stock-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    30% {
+        transform: translateX(-3px);
+    }
+    60% {
+        transform: translateX(3px);
+    }
+}
+
 .transfer-quantity-cell {
     padding: 0;
     border-left: 1px solid #d9d9d4;
@@ -193,6 +265,8 @@ button:disabled {
 
 .transfer-quantity-button {
     width: 40px;
+    flex: 0 0 40px;
+    height: 40px;
     min-height: 40px;
     padding: 0;
     border: 0px solid #d9d9d4;
@@ -207,6 +281,13 @@ button:disabled {
     background: #f3f3f7;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .transfer-max-feedback.is-visible,
+    .central-stock-column.is-limit-warning {
+        animation: none;
+    }
+}
+
 .status {
     margin: 14px 0 0;
     color: #626269;
@@ -219,7 +300,10 @@ button:disabled {
 }
 
 #results {
-    margin-top: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
 }
 
 body.has-results .container {
@@ -233,7 +317,7 @@ body.has-results .upload-section {
     flex-direction: row;
     justify-content: flex-start;
     gap: 16px;
-    padding: 12px 16px;
+    background: transparent;
 }
 
 body.has-results .upload-title {
@@ -394,23 +478,43 @@ table {
     text-align: left;
 }
 
-#transferPanel th:nth-child(2),
-#transferPanel td:nth-child(2) {
-    width: 1%;
+.count-column,
+.central-stock-column {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
     white-space: nowrap;
 }
 
-.count-column {
-    width: 72px;
-    min-width: 72px;
-    max-width: 72px;
+.price-column {
+    width: 88px;
+    min-width: 88px;
+    max-width: 88px;
     white-space: nowrap;
+}
+
+.barcode-column {
+    width: 150px;
+    min-width: 150px;
+    max-width: 150px;
+    white-space: nowrap;
+}
+
+.stop-section {
+    margin-top: 24px;
+}
+
+.stop-title {
+    margin: 0 0 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #202124;
 }
 
 .same-width-column {
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
     white-space: nowrap;
 }
 
