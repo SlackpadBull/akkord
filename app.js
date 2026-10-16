@@ -51,7 +51,6 @@ const RESTOCK_ALLOWLIST = [
 
 const STOP_ITEMS = [
     // На стопе «Только на центральном»
-    'Тюнер',
     'Комплект Ronnie wood с вырезом Bls',
     'Кабель Standard Cable 3m STR/ANG',
     'Кабель Standard Cable 3m STR/STR',
