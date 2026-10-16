@@ -37,6 +37,7 @@ const RESTOCK_EXCLUSIONS = [
     'Аудио интерфейс',
     'Кларнет',
     'Банкетка Rowell',
+    'Чехол для бас гитары черный B12-EG-BK',
 ]
 
 const RESTOCK_ALLOWLIST = [
@@ -54,8 +55,10 @@ const STOP_ITEMS = [
     'Комплект Ronnie wood с вырезом Bls',
     'Кабель Standard Cable 3m STR/ANG',
     'Кабель Standard Cable 3m STR/STR',
-    'Гитара Adagio 7000',
+    'Гитара Adagio 7000 CE с подключением',
     'Тюнер Китай 7444 Арома',
+    'Пинчер Китай 6356',
+    'Чехол для бас гитары черный B12-EG-BK',
     'Чехол для укулеле сопрано',
 ]
 
