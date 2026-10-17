@@ -46,8 +46,8 @@ const RESTOCK_ALLOWLIST = [
     'Кнопка домбра',
     'Домбра 44',
     'береза лиственница бук',
-    'Футляр',
-    
+    'Футляр домбра тёплый мягкий',
+    'Футляр домбра тёплый',
 ]
 
 const RESTOCK_TO_TEN_ITEMS = [
@@ -1029,11 +1029,13 @@ function printTransferResults(position = null) {
             `
     })
 
+    const invoiceDate = new Date()
+    invoiceDate.setDate(invoiceDate.getDate() + 1)
     const printDate = new Intl.DateTimeFormat('ru-RU', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-    }).format(new Date())
+    }).format(invoiceDate)
 
     const summaryRow = `
                 <tr class="summary-row">
