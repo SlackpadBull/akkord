@@ -1084,7 +1084,7 @@ function printTransferResults(position = null) {
           @page { margin: 0; size: A4 portrait; }
                     body {
             margin: 0;
-            padding: 16mm;
+                    padding: 16mm 16mm 11mm;
             font-family: Arial, Helvetica, sans-serif;
             color: #202124;
           }
@@ -1195,7 +1195,7 @@ function printTransferResults(position = null) {
             display: block;
                         width: auto;
                         max-width: none;
-                        height: 16px;
+                                                height: 16.8px;
             background: #fff;
           }
           .empty-barcode {
@@ -1213,7 +1213,7 @@ function printTransferResults(position = null) {
                         font-size: 14px;
                     }
           @media print {
-            body { margin: 0; padding: 16mm; }
+                        body { margin: 0; padding: 16mm 16mm 11mm; }
             th { background: #f2f2f2 !important; print-color-adjust: exact; }
           }
         </style>
@@ -1230,8 +1230,8 @@ function printTransferResults(position = null) {
                 JsBarcode(svg, code, {
                   format,
                   displayValue: false,
-                  width: 0.9,
-                  height: 16,
+                  width: 0.585,
+                  height: 16.8,
                   margin: 0,
                   background: '#fff',
                   lineColor: '#000'
@@ -1241,13 +1241,17 @@ function printTransferResults(position = null) {
                                                 const firstPage = document.querySelector('.print-page');
                                                 const firstContent = firstPage.querySelector('.print-content');
                                                 const pageHeight = firstPage.clientHeight;
+                                                const usablePageHeight = pageHeight;
                                                 const halfPageHeight = pageHeight / 2;
+                                                const desiredBottomGap = (8 * 96) / 25.4;
                                                 const firstBody = firstPage.querySelector('tbody');
                                                 const productRows = Array.from(firstBody.querySelectorAll('tr')).filter(
                                                     row => !row.classList.contains('summary-row')
                                                 );
                                                 const summaryRow = firstBody.querySelector('.summary-row');
-                                                const fitsHalfPage = firstContent.getBoundingClientRect().height <= halfPageHeight;
+                                                const lowerHalfCapacity = usablePageHeight - halfPageHeight;
+                                                const initialContentHeight = firstContent.getBoundingClientRect().height;
+                                                const fitsHalfPage = initialContentHeight <= Math.min(halfPageHeight, lowerHalfCapacity);
                                                 const shouldShowPositionPicker = ${position ? 'false' : 'true'};
 
                                                 if (fitsHalfPage && shouldShowPositionPicker) {
@@ -1277,7 +1281,7 @@ function printTransferResults(position = null) {
                                                 if (!fitsHalfPage) {
                                                     for (const row of productRows) {
                                                         currentBody.appendChild(row);
-                                                        if (currentPage.querySelector('.print-content').getBoundingClientRect().height > pageHeight) {
+                                                        if (currentPage.querySelector('.print-content').getBoundingClientRect().height > usablePageHeight) {
                                                             currentBody.removeChild(row);
                                                             if (currentBody.children.length > 0) createContinuationPage();
                                                             currentBody.appendChild(row);
@@ -1285,7 +1289,7 @@ function printTransferResults(position = null) {
                                                     }
 
                                                     currentBody.appendChild(summaryRow);
-                                                    if (currentPage.querySelector('.print-content').getBoundingClientRect().height > pageHeight) {
+                                                    if (currentPage.querySelector('.print-content').getBoundingClientRect().height > usablePageHeight) {
                                                         currentBody.removeChild(summaryRow);
                                                         createContinuationPage();
                                                         currentBody.appendChild(summaryRow);
@@ -1294,15 +1298,21 @@ function printTransferResults(position = null) {
                                                     currentBody.append(...productRows, summaryRow);
                                                 }
 
+                                                let bottomOffset = 0;
                                                 if (fitsHalfPage && '${position}' === 'bottom') {
-                                                    firstPage.querySelector('.print-offset').style.height = halfPageHeight + 'px';
+                                                    const availableGap = Math.max(0, lowerHalfCapacity - initialContentHeight);
+                                                    bottomOffset = halfPageHeight + Math.min(desiredBottomGap, availableGap);
+                                                    firstPage.querySelector('.print-offset').style.height = bottomOffset + 'px';
                                                 }
 
                                                 const lastPage = printPages[printPages.length - 1];
                                                 const lastContent = lastPage.querySelector('.print-content');
-                                                const lastTargetHeight = lastContent.getBoundingClientRect().height <= halfPageHeight
+                                                let lastTargetHeight = lastContent.getBoundingClientRect().height <= halfPageHeight
                                                     ? halfPageHeight
-                                                    : pageHeight;
+                                                    : usablePageHeight;
+                                                if (printPages.length === 1 && fitsHalfPage && '${position}' === 'bottom') {
+                                                    lastTargetHeight = usablePageHeight - bottomOffset;
+                                                }
                                                 const lastBody = lastPage.querySelector('tbody');
 
                                                 while (lastContent.getBoundingClientRect().height < lastTargetHeight) {
@@ -1314,6 +1324,9 @@ function printTransferResults(position = null) {
                                                         break;
                                                     }
                                                 }
+
+                                                lastPage.style.breakAfter = 'auto';
+                                                lastPage.style.pageBreakAfter = 'auto';
 
             window.focus();
             window.print();
