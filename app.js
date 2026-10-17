@@ -631,7 +631,7 @@ function renderResults() {
 
     if (isCentralList && stopResults.length > 0) {
         stopSection.hidden = false
-        const stopHeadings = ['Название', 'Штрих код', 'ЦС', 'Цена', ...(isMoveEditable ? ['Перемещение'] : [])]
+        const stopHeadings = ['Название', 'ЦС', 'Цена', 'Штрих код', ...(isMoveEditable ? ['Перемещение'] : [])]
         stopResultsHeadings.replaceChildren()
         for (const heading of stopHeadings) {
             const th = document.createElement('th')
@@ -651,10 +651,11 @@ function renderResults() {
         for (const product of stopResults) {
             const tr = document.createElement('tr')
             addCell(tr, product.name)
-            addCell(tr, product.barcode)
             const stockCell = addCell(tr, formatStock(product.stock))
             stockCell.classList.add('central-stock-column')
             addCell(tr, formatPrice(product.price))
+            const barcodeCell = addCell(tr, product.barcode)
+            barcodeCell.classList.add('barcode-column')
             if (isMoveEditable) {
                 addTransferQuantityCell(tr, product)
             }
