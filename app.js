@@ -1,7 +1,6 @@
 const CENTRAL_WAREHOUSE = 'Центральный склад'
 const STORE_WAREHOUSE = 'Склад точки Аккорд'
 const REPAIR_WAREHOUSE = 'Склад точки На ремонт'
-
 // Нумерация колонок начинается с нуля:
 // A = 0, B = 1, C = 2 и так далее
 const COLUMNS = {
@@ -1036,53 +1035,45 @@ function printTransferResults(position = null) {
         year: 'numeric',
     }).format(new Date())
 
-    const pageMarkup = Array.from({ length: Math.ceil(transferItems.length / 48) }, (_, pageIndex) => {
-        const firstItemIndex = pageIndex * 48
-        const pageItems = itemRows.slice(firstItemIndex, firstItemIndex + 48).join('')
-        const isLastPage = pageIndex === Math.ceil(transferItems.length / 48) - 1
-        const pageTitle = pageIndex === 0 ? 'Накладная на перемещение' : `Накладная на перемещение №${pageIndex + 1}`
-        const summaryRow = isLastPage
-            ? `
-                                <tr class="summary-row">
-                                    <td class="summary-values-cell">
-                                        <span class="summary-values">
-                                            <span class="summary-value">${escapeHtml(formatPrice(totalAmount))}</span>
-                                            <span class="summary-value">${escapeHtml(String(totalQuantity))}</span>
-                                        </span>
-                                    </td>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                    <td>&nbsp;</td>
-                                </tr>
-                            `
-            : ''
+    const summaryRow = `
+                <tr class="summary-row">
+                    <td class="summary-values-cell">
+                        <span class="summary-values">
+                            <span class="summary-value">${escapeHtml(formatPrice(totalAmount))}</span>
+                            <span class="summary-value">${escapeHtml(String(totalQuantity))}</span>
+                        </span>
+                    </td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                </tr>
+        `
 
-        return `
-                    <main class="print-page">
-                        <div class="print-offset" aria-hidden="true"></div>
-                        <section class="print-content">
-                            <header class="print-header ${pageIndex > 0 ? 'print-header-continuation' : ''}">
-                                <div class="print-header-left">
-                                    <h1>${pageTitle}</h1>
-                                    <p class="print-note">Если цена отличается от ЦС, выделить маркером и отправить в реализацию</p>
-                                </div>
-                                <span class="print-date">${printDate}</span>
-                            </header>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Название</th>
-                                        <th>Цена ЦС</th>
-                                        <th>Кол.</th>
-                                        <th>Цена Ак</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${pageItems}${summaryRow}</tbody>
-                            </table>
-                        </section>
-                    </main>
-                `
-    }).join('')
+    const pageMarkup = `
+            <main class="print-page">
+                <div class="print-offset" aria-hidden="true"></div>
+                <section class="print-content">
+                    <header class="print-header">
+                        <div class="print-header-left">
+                            <h1>Накладная на перемещение</h1>
+                            <p class="print-note">Если цена отличается от ЦС, выделить маркером и отправить в реализацию</p>
+                        </div>
+                        <span class="print-date">${printDate}</span>
+                    </header>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Название</th>
+                                <th>Цена ЦС</th>
+                                <th>Кол.</th>
+                                <th>Цена Ак</th>
+                            </tr>
+                        </thead>
+                        <tbody>${itemRows.join('')}${summaryRow}</tbody>
+                    </table>
+                </section>
+            </main>
+        `
 
     printWindow.document.write(`<!DOCTYPE html>
     <html lang="ru">
@@ -1141,16 +1132,16 @@ function printTransferResults(position = null) {
             table-layout: fixed;
             text-align: left;
           }
-          th:nth-child(1), td:nth-child(1) { width: 78%; }
-          th:nth-child(2), td:nth-child(2) { width: 8%; }
-          th:nth-child(3), td:nth-child(3) { width: 4%; }
-          th:nth-child(4), td:nth-child(4) { width: 10%; }
+          th:nth-child(1), td:nth-child(1) { width: 72%; }
+          th:nth-child(2), td:nth-child(2) { width: 14%; }
+          th:nth-child(3), td:nth-child(3) { width: 6%; }
+          th:nth-child(4), td:nth-child(4) { width: 8%; }
           th, td {
                         padding: 1.5px 4px;
             border: 1px solid #999;
                         font-size: 10px;
                         line-height: 1.15;
-                        height: 14px;
+                        height: 16px;
             vertical-align: middle;
           }
                     thead { display: table-header-group; }
@@ -1178,12 +1169,13 @@ function printTransferResults(position = null) {
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            min-height: 16px;
+                        min-height: 24px;
             padding: 0 4px;
           }
           .print-product-name {
+                        font-size: 14px;
             font-weight: 400;
-            line-height: 1.3;
+                        line-height: 1.2;
             flex: 1 1 auto;
             white-space: normal;
             min-width: 0;
@@ -1193,22 +1185,22 @@ function printTransferResults(position = null) {
             align-items: center;
             justify-content: center;
             flex: 0 0 auto;
-            min-width: 58px;
-            width: 58px;
+            min-width: 0;
+            width: auto;
             padding: 0;
             border: none;
             background: transparent;
           }
           .print-barcode {
             display: block;
-            width: 100%;
-            max-width: 58px;
-            height: 15px;
+                        width: auto;
+                        max-width: none;
+                        height: 16px;
             background: #fff;
           }
           .empty-barcode {
-            width: 58px;
-            height: 15px;
+                        width: 60px;
+                        height: 16px;
             border: none;
           }
           .price-cell,
@@ -1216,6 +1208,10 @@ function printTransferResults(position = null) {
           .empty-price-cell {
             text-align: left;
           }
+                    .price-cell,
+                    .qty-cell {
+                        font-size: 14px;
+                    }
           @media print {
             body { margin: 0; padding: 16mm; }
             th { background: #f2f2f2 !important; print-color-adjust: exact; }
@@ -1234,51 +1230,90 @@ function printTransferResults(position = null) {
                 JsBarcode(svg, code, {
                   format,
                   displayValue: false,
-                  width: 1.2,
-                  height: 32,
+                  width: 0.9,
+                  height: 16,
                   margin: 0,
                   background: '#fff',
                   lineColor: '#000'
                 });
               }
             });
-                        const printPages = Array.from(document.querySelectorAll('.print-page'));
-                        const firstContent = printPages[0].querySelector('.print-content');
-                        const halfPageHeight = printPages[0].clientHeight / 2;
-                        const fitsHalfPage = firstContent.getBoundingClientRect().height <= halfPageHeight;
+                                                const firstPage = document.querySelector('.print-page');
+                                                const firstContent = firstPage.querySelector('.print-content');
+                                                const pageHeight = firstPage.clientHeight;
+                                                const halfPageHeight = pageHeight / 2;
+                                                const firstBody = firstPage.querySelector('tbody');
+                                                const productRows = Array.from(firstBody.querySelectorAll('tr')).filter(
+                                                    row => !row.classList.contains('summary-row')
+                                                );
+                                                const summaryRow = firstBody.querySelector('.summary-row');
+                                                const fitsHalfPage = firstContent.getBoundingClientRect().height <= halfPageHeight;
+                                                const shouldShowPositionPicker = ${position ? 'false' : 'true'};
 
-                        if (printPages.length === 1 && fitsHalfPage && !${position ? 'true' : 'false'}) {
+                                                if (fitsHalfPage && shouldShowPositionPicker) {
                             window.parent.document.getElementById('transferPrintDialog').showModal();
                             window.frameElement.remove();
                             return;
                         }
 
-                        printPages.forEach((printPage, pageIndex) => {
-                            const printContent = printPage.querySelector('.print-content');
-                            const printOffset = printPage.querySelector('.print-offset');
-                            const tableBody = printPage.querySelector('tbody');
-                            const pageHeight = printPage.clientHeight;
-                            const pageHalfHeight = pageHeight / 2;
-                            const pageFitsHalf = printContent.getBoundingClientRect().height <= pageHalfHeight;
-                            const isLastPage = pageIndex === printPages.length - 1;
-                            const targetHeight = isLastPage && pageFitsHalf ? pageHalfHeight : pageHeight;
+                                                const printPages = [firstPage];
+                                                const pageTemplate = firstPage.cloneNode(true);
+                                                pageTemplate.querySelector('tbody').replaceChildren();
+                                                firstBody.replaceChildren();
+                                                let currentPage = firstPage;
+                                                let currentBody = firstBody;
 
-                            if (printPages.length === 1 && pageFitsHalf && '${position}' === 'bottom') {
-                                printOffset.style.height = pageHalfHeight + 'px';
-                            }
+                                                const createContinuationPage = () => {
+                                                    const nextPage = pageTemplate.cloneNode(true);
+                                                    const pageNumber = printPages.length + 1;
+                                                    nextPage.querySelector('h1').textContent = 'Накладная на перемещение №' + pageNumber;
+                                                    nextPage.querySelector('.print-header').classList.add('print-header-continuation');
+                                                    document.body.appendChild(nextPage);
+                                                    printPages.push(nextPage);
+                                                    currentPage = nextPage;
+                                                    currentBody = nextPage.querySelector('tbody');
+                                                };
 
-                            if (isLastPage) {
-                                while (printContent.getBoundingClientRect().height < targetHeight) {
-                                    const blankRow = document.createElement('tr');
-                                    blankRow.innerHTML = '<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>';
-                                    tableBody.appendChild(blankRow);
-                                    if (printContent.getBoundingClientRect().height > targetHeight) {
-                                        blankRow.remove();
-                                        break;
-                                    }
-                                }
-                            }
-                        })
+                                                if (!fitsHalfPage) {
+                                                    for (const row of productRows) {
+                                                        currentBody.appendChild(row);
+                                                        if (currentPage.querySelector('.print-content').getBoundingClientRect().height > pageHeight) {
+                                                            currentBody.removeChild(row);
+                                                            if (currentBody.children.length > 0) createContinuationPage();
+                                                            currentBody.appendChild(row);
+                                                        }
+                                                    }
+
+                                                    currentBody.appendChild(summaryRow);
+                                                    if (currentPage.querySelector('.print-content').getBoundingClientRect().height > pageHeight) {
+                                                        currentBody.removeChild(summaryRow);
+                                                        createContinuationPage();
+                                                        currentBody.appendChild(summaryRow);
+                                                    }
+                                                } else {
+                                                    currentBody.append(...productRows, summaryRow);
+                                                }
+
+                                                if (fitsHalfPage && '${position}' === 'bottom') {
+                                                    firstPage.querySelector('.print-offset').style.height = halfPageHeight + 'px';
+                                                }
+
+                                                const lastPage = printPages[printPages.length - 1];
+                                                const lastContent = lastPage.querySelector('.print-content');
+                                                const lastTargetHeight = lastContent.getBoundingClientRect().height <= halfPageHeight
+                                                    ? halfPageHeight
+                                                    : pageHeight;
+                                                const lastBody = lastPage.querySelector('tbody');
+
+                                                while (lastContent.getBoundingClientRect().height < lastTargetHeight) {
+                                                    const blankRow = document.createElement('tr');
+                                                    blankRow.innerHTML = '<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>';
+                                                    lastBody.appendChild(blankRow);
+                                                    if (lastContent.getBoundingClientRect().height > lastTargetHeight) {
+                                                        blankRow.remove();
+                                                        break;
+                                                    }
+                                                }
 
             window.focus();
             window.print();
