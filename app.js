@@ -47,20 +47,19 @@ const RESTOCK_ALLOWLIST = [
     'Кнопка домбра',
     'Домбра 44',
     'береза лиственница бук',
+    'Чехол домбра тёплый мягкий',
+    'Чехол домбра тёплый',
 ]
 
-const SPECIAL_RESTOCK_RULES = [
-    {
-        matches: ['чехол для домбры', 'чехол домбра детский'],
-        minimumStoreStock: 6,
-        targetStoreStock: 10,
-    },
-    {
-        matches: ['увлажнитель китай 6359', 'тюнер китай 6357 арома'],
-        minimumStoreStock: 6,
-        targetStoreStock: 10,
-    },
+const RESTOCK_TO_TEN_ITEMS = [
+    // Пополняются до 10, если в магазине меньше 5
+    'Чехол для домбры',
+    'Чехол домбра детский',
+    'Увлажнитель китай 6359',
+    'Тюнер китай 6357 арома',
 ]
+const RESTOCK_TO_TEN_MINIMUM = 5
+const RESTOCK_TO_TEN_TARGET = 10
 
 const STOP_ITEMS = [
     // На стопе «Только на центральном»
@@ -301,9 +300,9 @@ function isRestockAllowed(name) {
     return RESTOCK_ALLOWLIST.some(allowedName => normalizedName === allowedName.toLocaleLowerCase('ru'))
 }
 
-function getSpecialRestockRule(name) {
+function isRestockToTenItem(name) {
     const normalizedName = normalizeText(name).toLocaleLowerCase('ru')
-    return SPECIAL_RESTOCK_RULES.find(rule => rule.matches.some(match => normalizedName.includes(match)))
+    return RESTOCK_TO_TEN_ITEMS.some(item => normalizedName.includes(item.toLocaleLowerCase('ru')))
 }
 
 function hasCentralExclusion(name) {
@@ -466,13 +465,13 @@ function analyzeStock() {
             }
         }
 
-        const specialRestockRule = getSpecialRestockRule(product.name)
-        const shouldRestock = specialRestockRule
-            ? product.storeStock < specialRestockRule.minimumStoreStock
+        const useRestockToTenRule = isRestockToTenItem(product.name)
+        const shouldRestock = useRestockToTenRule
+            ? product.storeStock < RESTOCK_TO_TEN_MINIMUM
             : product.storeStock > 0 && product.storeStock < 3
 
         if (shouldRestock && product.centralStock > 0) {
-            const targetStoreStock = specialRestockRule?.targetStoreStock ?? 3
+            const targetStoreStock = useRestockToTenRule ? RESTOCK_TO_TEN_TARGET : 3
             const restockProduct = {
                 name: product.name,
                 barcode: product.barcode,
@@ -482,7 +481,7 @@ function analyzeStock() {
                 transferQuantity: String(Math.min(product.centralStock, targetStoreStock - product.storeStock)),
             }
 
-            if (!specialRestockRule && hasRestockExclusion(product.name) && !isRestockAllowed(product.name)) {
+            if (!useRestockToTenRule && hasRestockExclusion(product.name) && !isRestockAllowed(product.name)) {
                 excludedRestockResults.push(restockProduct)
             } else {
                 restockResults.push(restockProduct)
