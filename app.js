@@ -47,8 +47,19 @@ const RESTOCK_ALLOWLIST = [
     'Кнопка домбра',
     'Домбра 44',
     'береза лиственница бук',
-    'Футляр домбра теплый',
-    'Футляр домбра теплый мягкий',
+]
+
+const SPECIAL_RESTOCK_RULES = [
+    {
+        matches: ['чехол для домбры', 'чехол домбра детский'],
+        minimumStoreStock: 6,
+        targetStoreStock: 10,
+    },
+    {
+        matches: ['увлажнитель китай 6359', 'тюнер китай 6357 арома'],
+        minimumStoreStock: 6,
+        targetStoreStock: 10,
+    },
 ]
 
 const STOP_ITEMS = [
@@ -290,6 +301,11 @@ function isRestockAllowed(name) {
     return RESTOCK_ALLOWLIST.some(allowedName => normalizedName === allowedName.toLocaleLowerCase('ru'))
 }
 
+function getSpecialRestockRule(name) {
+    const normalizedName = normalizeText(name).toLocaleLowerCase('ru')
+    return SPECIAL_RESTOCK_RULES.find(rule => rule.matches.some(match => normalizedName.includes(match)))
+}
+
 function hasCentralExclusion(name) {
     const normalizedName = normalizeText(name).toLocaleLowerCase('ru')
     return CENTRAL_EXCLUSIONS.some(exclusion => normalizedName.includes(exclusion.toLocaleLowerCase('ru')))
@@ -450,17 +466,23 @@ function analyzeStock() {
             }
         }
 
-        if (product.storeStock > 0 && product.storeStock < 3 && product.centralStock > 0) {
+        const specialRestockRule = getSpecialRestockRule(product.name)
+        const shouldRestock = specialRestockRule
+            ? product.storeStock < specialRestockRule.minimumStoreStock
+            : product.storeStock > 0 && product.storeStock < 3
+
+        if (shouldRestock && product.centralStock > 0) {
+            const targetStoreStock = specialRestockRule?.targetStoreStock ?? 3
             const restockProduct = {
                 name: product.name,
                 barcode: product.barcode,
                 storeStock: product.storeStock,
                 centralStock: product.centralStock,
                 price: product.price,
-                transferQuantity: String(Math.min(product.centralStock, 3 - product.storeStock)),
+                transferQuantity: String(Math.min(product.centralStock, targetStoreStock - product.storeStock)),
             }
 
-            if (hasRestockExclusion(product.name) && !isRestockAllowed(product.name)) {
+            if (!specialRestockRule && hasRestockExclusion(product.name) && !isRestockAllowed(product.name)) {
                 excludedRestockResults.push(restockProduct)
             } else {
                 restockResults.push(restockProduct)
