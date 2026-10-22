@@ -67,7 +67,6 @@ const STOP_ITEMS = [
     // На стопе «Только на центральном»
     'Комплект Ronnie wood с вырезом Bls',
     'Кабель Standard Cable 3m STR/ANG',
-    'Кабель Standard Cable 3m STR/STR',
     'Гитара Adagio 7000 CE с подключением',
     'Тюнер Китай 7444 Арома',
     'Чехол для бас гитары черный B12-EG-BK',
