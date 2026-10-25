@@ -59,6 +59,15 @@ const RESTOCK_TO_TEN_ITEMS = [
     'Каподастр',
     'Каподастр Китай 6411',
     'Каподастр металл',
+    'Чехол простой 38',
+    'Чехол простой 41',
+    'Чехол теплый 41 ВК',
+    'Чехол утепленный Deviser 39',
+    'Чехол утепленный Deviser 41',
+    'Чехол утеплённый RockStel Delux DGB110A black',
+    'Чехол утеплённый RockStel Element EGB110A Gray',
+    'Чехол утеплённый RockStel Element EGB110C RED',
+    'Чехол утеплённый RockStel Element EGB110EB BK',
 ]
 const RESTOCK_TO_TEN_MINIMUM = 5
 const RESTOCK_TO_TEN_TARGET = 10
