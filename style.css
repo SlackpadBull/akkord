@@ -209,19 +209,20 @@ button:disabled {
 .print-date-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px;
+    gap: 0;
     margin-top: 16px;
-    padding: 4px;
-    border: 1px solid #e3e3e8;
-    border-radius: 9px;
-    background: #f5f5f8;
 }
 
 .print-date-option {
-    min-height: 40px;
+    position: relative;
+    z-index: 0;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
     padding: 6px 12px;
-    border-radius: 6px;
-    background: transparent;
+    border: 1px solid #d9d9d4;
+    border-radius: 0;
+    background: #f5f5f8;
     color: #626269;
     font: 500 14px Arial, Helvetica, sans-serif;
     transition:
@@ -231,24 +232,56 @@ button:disabled {
         color 120ms ease;
 }
 
-.print-position-option:hover:not(:disabled),
+.print-date-option:first-child {
+    border-right-color: transparent;
+    border-radius: 8px 0 0 8px;
+}
+
+.print-date-option + .print-date-option {
+    margin-left: -1px;
+    border-radius: 0 8px 8px 0;
+}
+
 .print-date-option:hover:not(:disabled):not(.is-selected) {
+    z-index: 1;
     border-color: #5b5cf6;
     background: #fafaff;
     color: #202124;
 }
 
-.print-date-option:hover:not(:disabled):not(.is-selected) {
-    outline: 1px solid #5b5cf6;
-}
-
 .print-date-option.is-selected {
+    display: flex;
+    z-index: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid #d9d9d4;
     background: #fff;
-    box-shadow: 0 1px 3px rgb(32 33 36 / 14%), 0 0 0 1px rgb(32 33 36 / 5%);
+    box-shadow: none;
     color: #202124;
     font-weight: 600;
     cursor: default;
     pointer-events: none;
+}
+
+.print-date-option.is-selected::before {
+    color: #55796b;
+    content: '✓';
+    font-size: 17px;
+    line-height: 1;
+}
+
+.print-date-option.is-selected:first-child {
+    border-right-color: transparent;
+}
+
+.print-date-option.is-selected + .print-date-option {
+    border-left-color: #d9d9d4;
+}
+
+.print-position-option:hover:not(:disabled) {
+    border-color: #5b5cf6;
+    background: #fafaff;
 }
 
 .print-date-option:focus-visible {
