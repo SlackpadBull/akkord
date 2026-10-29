@@ -505,10 +505,15 @@ body.has-results .status {
 }
 
 .results-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     display: flex;
     gap: 4px;
     margin: -4px 0 20px;
+    padding-top: 4px;
     overflow-x: auto;
+    background: #fff;
     border-bottom: 1px solid #e7e7e3;
 }
 

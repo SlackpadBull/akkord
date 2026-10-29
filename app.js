@@ -937,6 +937,7 @@ function addTransferQuantityCell(row, product, isTransferTable = false, isExclud
 }
 
 function selectResultsTab(tab) {
+    window.scrollTo(0, 0)
     activeList = tab
     const isCentralList = tab === 'central'
     const isRestockList = tab === 'restock'
