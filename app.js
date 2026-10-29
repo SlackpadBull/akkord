@@ -119,6 +119,8 @@ const transferEmptyMessage = document.getElementById('transferEmptyMessage')
 const transferExportBtn = document.getElementById('transferExportBtn')
 const transferPrintBtn = document.getElementById('transferPrintBtn')
 const transferPrintDialog = document.getElementById('transferPrintDialog')
+const transferPrintDate = document.getElementById('transferPrintDate')
+const transferPrintDateOptions = Array.from(transferPrintDate.querySelectorAll('[data-print-date]'))
 const transferExcludedLink = document.getElementById('transferExcludedLink')
 const transferBackLink = document.getElementById('transferBackLink')
 const exceptionsInfo = document.getElementById('exceptionsInfo')
@@ -199,9 +201,39 @@ transferExportBtn.addEventListener('click', exportTransferResults)
 transferPrintBtn.addEventListener('click', requestTransferPrint)
 transferPrintDialog.querySelectorAll('[data-print-position]').forEach(button => {
     button.addEventListener('click', () => {
-        const position = button.dataset.printPosition
-        transferPrintDialog.close()
-        printTransferResults(position)
+        submitTransferPrint(button.dataset.printPosition)
+    })
+})
+transferPrintDialog.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return
+
+    event.preventDefault()
+    closeTransferPrintDialog()
+})
+transferPrintDialog.addEventListener('click', event => {
+    if (event.target === transferPrintDialog) {
+        closeTransferPrintDialog()
+    }
+})
+transferPrintDateOptions.forEach((button, index) => {
+    button.addEventListener('click', () => {
+        if (button.getAttribute('aria-checked') === 'true') return
+        selectTransferPrintDate(button)
+    })
+    button.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+
+        event.preventDefault()
+        const nextIndex =
+            event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? transferPrintDateOptions.length - 1
+                  : (index + (event.key === 'ArrowRight' ? 1 : -1) + transferPrintDateOptions.length) %
+                    transferPrintDateOptions.length
+        const nextOption = transferPrintDateOptions[nextIndex]
+        selectTransferPrintDate(nextOption)
+        nextOption.focus()
     })
 })
 centralTab.addEventListener('click', () => selectResultsTab('central'))
@@ -457,6 +489,7 @@ function analyzeStock() {
             const centralProduct = {
                 name: product.name,
                 barcode: product.barcode,
+                storeStock: product.storeStock,
                 stock: product.centralStock,
                 price: product.price,
                 transferQuantity: isStopItem(product.name) ? '' : '1',
@@ -733,6 +766,7 @@ function renderResults() {
     resultsSection.hidden = false
     document.body.classList.add('has-results')
     exportBtn.disabled = activeResults.length === 0
+    exportBtn.hidden = !isAllStockList
 }
 
 function getTransferItems() {
@@ -770,17 +804,14 @@ function renderTransferTable(products, isExcludedList = false) {
     for (const product of products) {
         const row = document.createElement('tr')
         addCell(row, product.name)
+        const storeStockCell = addCell(row, formatStock(product.storeStock ?? 0))
+        storeStockCell.classList.add('count-column')
         const centralStock = parseStock(product.centralStock ?? product.stock) ?? 0
         const centralStockCell = addCell(row, formatStock(centralStock))
         centralStockCell.classList.add('central-stock-column')
         const priceCell = addCell(row, formatPrice(product.price ?? product.salePrice ?? product.purchasePrice ?? ''))
         priceCell.classList.add('price-column')
-        if (isExcludedList) {
-            const quantityCell = addCell(row, '')
-            quantityCell.className = 'transfer-quantity-cell same-width-column'
-        } else {
-            addTransferQuantityCell(row, product, true)
-        }
+        addTransferQuantityCell(row, product, true, isExcludedList)
         transferBody.appendChild(row)
     }
     transferEmptyMessage.textContent = isExcludedList
@@ -788,10 +819,10 @@ function renderTransferTable(products, isExcludedList = false) {
         : 'В таблице на перемещение пока нет товаров.'
     transferEmptyMessage.hidden = products.length !== 0
     transferExportBtn.disabled = products.length === 0
-    transferPrintBtn.disabled = products.length === 0
+    transferPrintBtn.disabled = false
 }
 
-function addTransferQuantityCell(row, product, isTransferTable = false) {
+function addTransferQuantityCell(row, product, isTransferTable = false, isExcludedTable = false) {
     const cell = document.createElement('td')
     cell.className = 'transfer-quantity-cell same-width-column'
     const controls = document.createElement('div')
@@ -853,14 +884,17 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
         if (activeList === 'transfer') {
             const hasTransferItems = getTransferItems().length > 0
             transferExportBtn.disabled = !hasTransferItems
-            transferPrintBtn.disabled = !hasTransferItems
         }
+    }
+    const shouldLeaveCurrentTransferView = () => {
+        const quantity = parseStock(product.transferQuantity)
+        return isExcludedTable ? quantity > 0 : quantity <= 0
     }
 
     quantityInput.addEventListener('input', updateQuantity)
     if (isTransferTable) {
         quantityInput.addEventListener('blur', () => {
-            if (parseStock(product.transferQuantity) <= 0) {
+            if (shouldLeaveCurrentTransferView()) {
                 renderResults()
             }
         })
@@ -889,7 +923,7 @@ function addTransferQuantityCell(row, product, isTransferTable = false) {
 
         quantityInput.value = String(nextQuantity)
         updateQuantity()
-        if (isTransferTable && parseStock(product.transferQuantity) <= 0) {
+        if (isTransferTable && shouldLeaveCurrentTransferView()) {
             renderResults()
         }
     }
@@ -950,6 +984,24 @@ function formatExportDate() {
     }).format(new Date())
 }
 
+function getTransferPrintDateValue(selection) {
+    const date = new Date()
+    if (selection === 'tomorrow') date.setDate(date.getDate() + 1)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
+function formatTransferPrintDate(value) {
+    const [year, month, day] = value.split('-').map(Number)
+    return new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).format(new Date(year, month - 1, day))
+}
+
 function getTransferExportData() {
     const transferItems = getTransferItems()
     return [
@@ -976,15 +1028,37 @@ function exportTransferResults() {
 }
 
 function requestTransferPrint() {
-    const transferItems = getTransferItems()
-    if (!transferItems.length) return
-
-    printTransferResults()
+    const selection = transferPrintDate.querySelector('[aria-checked="true"]').dataset.printDate
+    printTransferResults(null, getTransferPrintDateValue(selection), true)
 }
 
-function printTransferResults(position = null) {
+function selectTransferPrintDate(selectedOption) {
+    for (const option of transferPrintDateOptions) {
+        const isSelected = option === selectedOption
+        option.classList.toggle('is-selected', isSelected)
+        option.setAttribute('aria-checked', String(isSelected))
+        option.setAttribute('aria-disabled', String(isSelected))
+        option.tabIndex = isSelected ? 0 : -1
+    }
+}
+
+function submitTransferPrint(position) {
+    transferPrintDialog.close()
+    const selection = transferPrintDate.querySelector('[aria-checked="true"]').dataset.printDate
+    printTransferResults(position, getTransferPrintDateValue(selection))
+}
+
+function closeTransferPrintDialog() {
+    transferPrintDialog.close()
+    requestAnimationFrame(() => {
+        if (document.activeElement === transferPrintBtn) {
+            transferPrintBtn.blur()
+        }
+    })
+}
+
+function printTransferResults(position, date, isPreview = false) {
     const transferItems = getTransferItems()
-    if (!transferItems.length) return
 
     const printFrame = document.createElement('iframe')
     printFrame.setAttribute('title', 'Печать накладной')
@@ -1037,13 +1111,7 @@ function printTransferResults(position = null) {
             `
     })
 
-    const invoiceDate = new Date()
-    invoiceDate.setDate(invoiceDate.getDate() + 1)
-    const printDate = new Intl.DateTimeFormat('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(invoiceDate)
+    const printDate = formatTransferPrintDate(date)
 
     const summaryRow = `
                 <tr class="summary-row">
@@ -1262,13 +1330,17 @@ function printTransferResults(position = null) {
                                                 const lowerHalfCapacity = usablePageHeight - halfPageHeight;
                                                 const initialContentHeight = firstContent.getBoundingClientRect().height;
                                                 const fitsHalfPage = initialContentHeight <= Math.min(halfPageHeight, lowerHalfCapacity);
-                                                const shouldShowPositionPicker = ${position ? 'false' : 'true'};
+                                                const isPrintPreview = ${isPreview};
 
-                                                if (fitsHalfPage && shouldShowPositionPicker) {
-                            window.parent.document.getElementById('transferPrintDialog').showModal();
-                            window.frameElement.remove();
-                            return;
-                        }
+                                                if (isPrintPreview) {
+                                                    const dialog = window.parent.document.getElementById('transferPrintDialog');
+                                                    dialog.querySelector('[data-print-position="top"]').hidden = !fitsHalfPage;
+                                                    dialog.querySelector('[data-print-position="bottom"]').hidden = !fitsHalfPage;
+                                                    dialog.querySelector('[data-print-position="full"]').hidden = fitsHalfPage;
+                                                    dialog.showModal();
+                                                    window.frameElement.remove();
+                                                    return;
+                                                }
 
                                                 const printPages = [firstPage];
                                                 const pageTemplate = firstPage.cloneNode(true);

@@ -164,6 +164,12 @@ button:disabled {
     gap: 8px;
 }
 
+.transfer-export-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
 .print-position-dialog {
     width: min(360px, calc(100% - 32px));
     padding: 20px;
@@ -200,6 +206,56 @@ button:disabled {
     gap: 10px;
 }
 
+.print-date-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 16px;
+    padding: 4px;
+    border: 1px solid #e3e3e8;
+    border-radius: 9px;
+    background: #f5f5f8;
+}
+
+.print-date-option {
+    min-height: 40px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: transparent;
+    color: #626269;
+    font: 500 14px Arial, Helvetica, sans-serif;
+    transition:
+        background-color 120ms ease,
+        border-color 120ms ease,
+        box-shadow 120ms ease,
+        color 120ms ease;
+}
+
+.print-position-option:hover:not(:disabled),
+.print-date-option:hover:not(:disabled):not(.is-selected) {
+    border-color: #5b5cf6;
+    background: #fafaff;
+    color: #202124;
+}
+
+.print-date-option:hover:not(:disabled):not(.is-selected) {
+    outline: 1px solid #5b5cf6;
+}
+
+.print-date-option.is-selected {
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(32 33 36 / 14%), 0 0 0 1px rgb(32 33 36 / 5%);
+    color: #202124;
+    font-weight: 600;
+    cursor: default;
+    pointer-events: none;
+}
+
+.print-date-option:focus-visible {
+    outline: 2px solid #5b5cf6;
+    outline-offset: 1px;
+}
+
 .print-position-option {
     display: flex;
     min-height: 72px;
@@ -213,9 +269,8 @@ button:disabled {
     color: #34343b;
 }
 
-.print-position-option:hover {
-    border-color: #5b5cf6;
-    background: #fafaff;
+.print-position-option[hidden] {
+    display: none;
 }
 
 .print-sheet-preview {
@@ -235,6 +290,15 @@ button:disabled {
 
 .print-sheet-preview.is-top .print-sheet-half:first-child,
 .print-sheet-preview.is-bottom .print-sheet-half:last-child {
+    background: #b8e3d2;
+}
+
+.print-sheet-preview.is-full {
+    padding: 4px;
+}
+
+.print-sheet-area {
+    flex: 1;
     background: #b8e3d2;
 }
 
