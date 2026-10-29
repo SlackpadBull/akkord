@@ -3,6 +3,7 @@
 }
 
 :root {
+    --page-scrollbar-width: 32px;
     font-family: Arial, Helvetica, sans-serif;
     color: #202124;
     background: #fff;
@@ -10,32 +11,68 @@
 }
 
 html {
-    scrollbar-color: #a5a5ad #fff;
+    scrollbar-width: none;
     background: #fff;
 }
 
 html::-webkit-scrollbar {
-    width: 14px;
-}
-
-html::-webkit-scrollbar-track {
-    background: #fff;
-}
-
-html::-webkit-scrollbar-thumb {
-    border: 3px solid #fff;
-    border-radius: 8px;
-    background: #a5a5ad;
-}
-
-html::-webkit-scrollbar-thumb:hover {
-    background: #777780;
+    display: none;
+    width: 0;
 }
 
 body {
     margin: 0;
-    min-width: 320px;
+    width: 100%;
+    min-width: 0;
     background: #fff;
+}
+
+body.has-page-scrollbar {
+    width: calc(100% - var(--page-scrollbar-width));
+}
+
+.page-scrollbar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 20;
+    width: var(--page-scrollbar-width);
+    height: 100vh;
+    background: #f1f1ef;
+    border-left: 1px solid #e7e7e3;
+    touch-action: none;
+    user-select: none;
+    cursor: pointer;
+}
+
+.page-scrollbar[hidden] {
+    display: none;
+}
+
+.page-scrollbar-thumb {
+    position: absolute;
+    top: 0;
+    left: 3px;
+    width: 25px;
+    min-height: 48px;
+    border: 2px solid #f1f1ef;
+    border-radius: 14px;
+    background: #a5a5ad;
+    cursor: grab;
+}
+
+.page-scrollbar:hover .page-scrollbar-thumb,
+.page-scrollbar-thumb:active {
+    background: #777780;
+}
+
+.page-scrollbar-thumb:active {
+    cursor: grabbing;
+}
+
+.page-scrollbar:focus-visible {
+    outline: 2px solid #5b5cf6;
+    outline-offset: -2px;
 }
 
 .container {

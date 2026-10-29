@@ -121,6 +121,8 @@ const transferPrintBtn = document.getElementById('transferPrintBtn')
 const transferPrintDialog = document.getElementById('transferPrintDialog')
 const transferPrintDate = document.getElementById('transferPrintDate')
 const transferPrintDateOptions = Array.from(transferPrintDate.querySelectorAll('[data-print-date]'))
+const pageScrollbar = document.getElementById('pageScrollbar')
+const pageScrollbarThumb = pageScrollbar.querySelector('.page-scrollbar-thumb')
 const transferExcludedLink = document.getElementById('transferExcludedLink')
 const transferBackLink = document.getElementById('transferBackLink')
 const exceptionsInfo = document.getElementById('exceptionsInfo')
@@ -137,6 +139,103 @@ let stopResults = []
 let activeList = 'central'
 let transferView = 'items'
 let selectedFileName = ''
+let scrollbarDragStart = null
+let scrollbarUpdateScheduled = false
+
+function updatePageScrollbar() {
+    scrollbarUpdateScheduled = false
+    const viewportHeight = document.documentElement.clientHeight
+    const pageHeight = document.documentElement.scrollHeight
+    const maxScroll = Math.max(0, pageHeight - viewportHeight)
+
+    pageScrollbar.hidden = maxScroll === 0
+    document.body.classList.toggle('has-page-scrollbar', maxScroll > 0)
+    if (maxScroll === 0) return
+
+    const trackHeight = pageScrollbar.clientHeight
+    const thumbHeight = Math.min(trackHeight, Math.max(64, (viewportHeight / pageHeight) * trackHeight))
+    const maxThumbTop = trackHeight - thumbHeight
+    const scrollTop = Math.min(maxScroll, Math.max(0, document.documentElement.scrollTop))
+    const thumbTop = maxScroll === 0 ? 0 : (scrollTop / maxScroll) * maxThumbTop
+
+    pageScrollbarThumb.style.height = `${thumbHeight}px`
+    pageScrollbarThumb.style.transform = `translateY(${thumbTop}px)`
+    pageScrollbar.setAttribute('aria-valuenow', String(Math.round((scrollTop / maxScroll) * 100)))
+}
+
+function schedulePageScrollbarUpdate() {
+    if (scrollbarUpdateScheduled) return
+    scrollbarUpdateScheduled = true
+    requestAnimationFrame(updatePageScrollbar)
+}
+
+function scrollToScrollbarPosition(clientY) {
+    const trackRect = pageScrollbar.getBoundingClientRect()
+    const maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight
+    const thumbHeight = pageScrollbarThumb.getBoundingClientRect().height
+    const maxThumbTop = trackRect.height - thumbHeight
+    const thumbTop = Math.min(maxThumbTop, Math.max(0, clientY - trackRect.top - thumbHeight / 2))
+    window.scrollTo(0, maxThumbTop > 0 ? (thumbTop / maxThumbTop) * maxScroll : 0)
+}
+
+pageScrollbar.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    pageScrollbar.focus({ preventScroll: true })
+
+    if (event.target === pageScrollbarThumb) {
+        scrollbarDragStart = {
+            pointerY: event.clientY,
+            thumbTop: pageScrollbarThumb.getBoundingClientRect().top - pageScrollbar.getBoundingClientRect().top,
+        }
+        pageScrollbar.setPointerCapture(event.pointerId)
+        return
+    }
+
+    scrollToScrollbarPosition(event.clientY)
+})
+
+pageScrollbar.addEventListener('pointermove', event => {
+    if (!scrollbarDragStart) return
+
+    const trackHeight = pageScrollbar.clientHeight
+    const thumbHeight = pageScrollbarThumb.getBoundingClientRect().height
+    const maxThumbTop = trackHeight - thumbHeight
+    const maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight
+    const thumbTop = Math.min(
+        maxThumbTop,
+        Math.max(0, scrollbarDragStart.thumbTop + event.clientY - scrollbarDragStart.pointerY),
+    )
+    window.scrollTo(0, maxThumbTop > 0 ? (thumbTop / maxThumbTop) * maxScroll : 0)
+})
+
+const stopScrollbarDrag = () => {
+    scrollbarDragStart = null
+}
+
+pageScrollbar.addEventListener('pointerup', stopScrollbarDrag)
+pageScrollbar.addEventListener('pointercancel', stopScrollbarDrag)
+pageScrollbar.addEventListener('keydown', event => {
+    const viewportHeight = document.documentElement.clientHeight
+    const keyScroll = {
+        ArrowDown: 40,
+        ArrowUp: -40,
+        PageDown: viewportHeight * 0.9,
+        PageUp: -viewportHeight * 0.9,
+        Home: -document.documentElement.scrollTop,
+        End: document.documentElement.scrollHeight,
+    }[event.key]
+
+    if (keyScroll === undefined) return
+    event.preventDefault()
+    window.scrollBy(0, keyScroll)
+})
+
+window.addEventListener('scroll', schedulePageScrollbarUpdate, { passive: true })
+window.addEventListener('resize', schedulePageScrollbarUpdate)
+new ResizeObserver(schedulePageScrollbarUpdate).observe(document.querySelector('.container'))
+new MutationObserver(schedulePageScrollbarUpdate).observe(document.body, { childList: true, subtree: true })
+schedulePageScrollbarUpdate()
 
 fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0]
