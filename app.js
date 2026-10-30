@@ -83,7 +83,6 @@ const STOP_ITEMS = [
     'Чехол для бас гитары черный B12-EG-BK',
     'Электрогитара G110 OPBC',
     'Электрогитара G110 OPBK',
-    'Гитара акустическая 6454',
 ]
 
 const CENTRAL_EXCLUSIONS = [
