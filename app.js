@@ -38,6 +38,7 @@ const RESTOCK_EXCLUSIONS = [
     'Банкетка Rowell',
     'Чехол для бас гитары черный B12-EG-BK',
     'Педаль сустейна Musedo TB-005',
+    'Саксофон альт',
 ]
 
 const RESTOCK_ALLOWLIST = [
