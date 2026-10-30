@@ -64,16 +64,16 @@ const RESTOCK_TO_TEN_ITEMS = [
     'Чехол простой 38',
     'Чехол простой 41',
     'Чехол теплый 41 ВК',
-    'Чехол 41 толстый',
+    // 'Чехол 41 толстый',
     'Чехол утепленный Deviser 39',
     'Чехол утепленный Deviser 41',
     'Чехол утеплённый RockStel Delux DGB110A black',
     'Чехол утеплённый RockStel Element EGB110A Gray',
     'Чехол утеплённый RockStel Element EGB110C RED',    
     'Чехол утеплённый RockStel Element EGB110EB BK',
-    'Ремень Fender',
-    'Ремень Fender цветной',
-    'Ремень Rizo',
+    // 'Ремень Fender',
+    // 'Ремень Fender цветной',
+    // 'Ремень Rizo',
 ]
 const RESTOCK_TO_TEN_MINIMUM = 5
 const RESTOCK_TO_TEN_TARGET = 10
