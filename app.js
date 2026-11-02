@@ -910,6 +910,11 @@ function renderTransferTable(products, isExcludedList = false) {
         const storeStockCell = addCell(row, formatStock(product.storeStock ?? 0))
         storeStockCell.classList.add('count-column')
         const centralStock = parseStock(product.centralStock ?? product.stock) ?? 0
+        const transferQuantity = parseStock(product.transferQuantity) ?? 0
+        const accordTotal = document.createElement('span')
+        accordTotal.className = 'transfer-store-total'
+        accordTotal.textContent = formatStock(centralStock + transferQuantity)
+        storeStockCell.appendChild(accordTotal)
         const centralStockCell = addCell(row, formatStock(centralStock))
         centralStockCell.classList.add('central-stock-column')
         const priceCell = addCell(row, formatPrice(product.price ?? product.salePrice ?? product.purchasePrice ?? ''))
@@ -983,6 +988,11 @@ function addTransferQuantityCell(row, product, isTransferTable = false, isExclud
         }
         product.transferQuantity = quantityInput.value
         syncTransferQuantityAcrossLists(getProductKey(product), product.transferQuantity)
+        const transferStoreTotal = row.querySelector('.transfer-store-total')
+        if (transferStoreTotal) {
+            const centralStock = parseStock(product.centralStock ?? product.stock) ?? 0
+            transferStoreTotal.textContent = formatStock(centralStock + (parseStock(product.transferQuantity) ?? 0))
+        }
         updateTransferCount()
         if (activeList === 'transfer') {
             const hasTransferItems = getTransferItems().length > 0
@@ -1412,7 +1422,7 @@ function printTransferResults(position, date, isPreview = false) {
                 JsBarcode(svg, code, {
                   format,
                   displayValue: false,
-                  width: 0.585,
+                                    width: 0.6435,
                   height: 16.8,
                   margin: 0,
                   background: '#fff',

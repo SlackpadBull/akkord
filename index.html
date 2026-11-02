@@ -157,6 +157,14 @@
                             <button class="print-position-cancel" type="submit">Отмена</button>
                         </form>
                     </div>
+                    <div id="transferPrintDate" class="print-date-options" role="radiogroup" aria-label="Дата накладной">
+                        <button type="button" class="print-date-option" role="radio" aria-checked="false" tabindex="-1" data-print-date="today">
+                            На сегодня
+                        </button>
+                        <button type="button" class="print-date-option is-selected" role="radio" aria-checked="true" aria-disabled="true" tabindex="0" data-print-date="tomorrow">
+                            На завтра
+                        </button>
+                    </div>
                     <div class="print-position-options">
                         <button type="button" class="print-position-option" data-print-position="top">
                             <span class="print-sheet-preview is-top" aria-hidden="true">
@@ -177,14 +185,6 @@
                                 <span class="print-sheet-area"></span>
                             </span>
                             <span>Весь лист</span>
-                        </button>
-                    </div>
-                    <div id="transferPrintDate" class="print-date-options" role="radiogroup" aria-label="Дата накладной">
-                        <button type="button" class="print-date-option" role="radio" aria-checked="false" tabindex="-1" data-print-date="today">
-                            На сегодня
-                        </button>
-                        <button type="button" class="print-date-option is-selected" role="radio" aria-checked="true" aria-disabled="true" tabindex="0" data-print-date="tomorrow">
-                            На завтра
                         </button>
                     </div>
                 </dialog>

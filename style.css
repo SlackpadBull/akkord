@@ -703,6 +703,14 @@ table {
     white-space: nowrap;
 }
 
+.transfer-store-total {
+    display: block;
+    margin-top: 2px;
+    color: #8a8a91;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
 .price-column {
     width: 88px;
     min-width: 88px;
