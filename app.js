@@ -1239,12 +1239,13 @@ function printTransferResults(position, date, isPreview = false) {
                 </td>
                 <td class="price-cell">
                   <span>${escapeHtml(formatPrice(product.price))}</span>
+                </td>
+                <td class="qty-cell">${escapeHtml(String(quantity))}</td>
+                <td class="accord-price-cell">
                   <span class="print-item-total">${escapeHtml(
                       formatPrice(String(quantity * (parsePrice(product.price) ?? 0))),
                   )}</span>
                 </td>
-                <td class="qty-cell">${escapeHtml(String(quantity))}</td>
-                <td class="empty-price-cell">&nbsp;</td>
               </tr>
             `
     })
@@ -1348,9 +1349,9 @@ function printTransferResults(position, date, isPreview = false) {
             table-layout: fixed;
             text-align: left;
           }
-          th:nth-child(1), td:nth-child(1) { width: 72%; }
-          th:nth-child(2), td:nth-child(2) { width: 14%; }
-          th:nth-child(3), td:nth-child(3) { width: 6%; }
+          th:nth-child(1), td:nth-child(1) { width: 75%; }
+          th:nth-child(2), td:nth-child(2) { width: 12%; }
+          th:nth-child(3), td:nth-child(3) { width: 5%; }
           th:nth-child(4), td:nth-child(4) { width: 8%; }
           th, td {
                         padding: 1.5px 4px;
@@ -1420,10 +1421,10 @@ function printTransferResults(position, date, isPreview = false) {
             border: none;
           }
           .price-cell,
-          .qty-cell,
-          .empty-price-cell {
+          .qty-cell {
             text-align: left;
           }
+                    .accord-price-cell { text-align: right; }
                     .print-item-total {
                         display: block;
                         color: #8a8a91;
