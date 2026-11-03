@@ -1371,9 +1371,13 @@ function printTransferResults(position, date, isPreview = false) {
                         font-weight: 400;
             background: #fafafa;
           }
-                    .summary-value {
+                    .summary-value,
+                    .print-item-total {
                         color: #bdbdbd;
+                        font-family: inherit;
                         font-size: 8px;
+                        font-weight: 400;
+                        line-height: 1.15;
                     }
                     .summary-values-cell { text-align: right; }
                     .summary-values { display: inline-flex; gap: 10px; }
@@ -1427,9 +1431,6 @@ function printTransferResults(position, date, isPreview = false) {
                     .accord-price-cell { text-align: right; }
                     .print-item-total {
                         display: block;
-                        color: #8a8a91;
-                        font-size: 8px;
-                        line-height: 1.1;
                     }
                     .price-cell,
                     .qty-cell {
