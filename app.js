@@ -1242,9 +1242,13 @@ function printTransferResults(position, date, isPreview = false) {
                 </td>
                 <td class="qty-cell">${escapeHtml(String(quantity))}</td>
                 <td class="accord-price-cell">
-                  <span class="print-item-total">${escapeHtml(
-                      formatPrice(String(quantity * (parsePrice(product.price) ?? 0))),
-                  )}</span>
+                  ${
+                      quantity > 1
+                          ? `<span class="print-item-total">${escapeHtml(
+                                formatPrice(String(quantity * (parsePrice(product.price) ?? 0))),
+                            )}</span>`
+                          : ''
+                  }
                 </td>
               </tr>
             `
