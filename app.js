@@ -368,7 +368,18 @@ function normalizeText(value) {
 }
 
 function getProductKey(product) {
-    return JSON.stringify([normalizeBarcode(product?.barcode), normalizeText(product?.name)])
+    return JSON.stringify([
+        normalizeBarcode(product?.barcode),
+        normalizeText(product?.name),
+        normalizeText(product?.price ?? product?.salePrice),
+    ])
+}
+
+function compareProductsByName(a, b) {
+    const nameComparison = a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' })
+    if (nameComparison) return nameComparison
+
+    return Number((parseStock(b.storeStock) ?? 0) > 0) - Number((parseStock(a.storeStock) ?? 0) > 0)
 }
 
 function syncTransferQuantityAcrossLists(productKey, quantity) {
@@ -415,8 +426,12 @@ function parseStock(value) {
 }
 
 function isZeroPrice(value) {
+    return parsePrice(value) === 0
+}
+
+function parsePrice(value) {
     if (typeof value === 'number') {
-        return Number.isFinite(value) && value === 0
+        return Number.isFinite(value) ? value : null
     }
 
     const normalized = String(value ?? '')
@@ -426,10 +441,10 @@ function isZeroPrice(value) {
         .replace(/(?:руб\.?|р\.?)/giu, '')
         .replace(',', '.')
 
-    if (!normalized) return false
+    if (!normalized) return null
 
     const price = Number(normalized)
-    return Number.isFinite(price) && price === 0
+    return Number.isFinite(price) ? price : null
 }
 
 function hasRestockExclusion(name) {
@@ -498,7 +513,7 @@ function analyzeStock() {
         ].includes(normalizedName)
 
         if (name && !isNameHeader) {
-            const allProductKey = JSON.stringify([barcode, name])
+            const allProductKey = JSON.stringify([barcode, name, salePrice])
             if (!allProducts.has(allProductKey)) {
                 allProducts.set(allProductKey, {
                     name,
@@ -540,7 +555,7 @@ function analyzeStock() {
 
         const price = salePrice
 
-        const productKey = JSON.stringify([barcode, name])
+        const productKey = JSON.stringify([barcode, name, price])
 
         if (!products.has(productKey)) {
             products.set(productKey, {
@@ -585,10 +600,15 @@ function analyzeStock() {
         transferQuantity: '',
     }))
 
+    const storeBarcodes = new Set(
+        Array.from(products.values())
+            .filter(product => product.hasStoreRow)
+            .map(product => product.barcode),
+    )
+
     for (const product of products.values()) {
-        // Требуется именно наличие строки на центральном складе
-        // и отсутствие строки с тем же штрихкодом на складе точки.
-        if (product.hasCentralRow && !product.hasStoreRow && !isZeroPrice(product.price)) {
+        // Наличие товара в Аккорде определяем по штрихкоду, даже если цена отличается.
+        if (product.hasCentralRow && !storeBarcodes.has(product.barcode) && !isZeroPrice(product.price)) {
             const centralProduct = {
                 name: product.name,
                 barcode: product.barcode,
@@ -609,11 +629,21 @@ function analyzeStock() {
         }
 
         const useRestockToTenRule = isRestockToTenItem(product.name)
+        const hasStoreStockAtDifferentPrice = Array.from(products.values()).some(
+            candidate =>
+                candidate.barcode === product.barcode &&
+                candidate.storeStock > 0 &&
+                candidate.price !== product.price,
+        )
         const shouldRestock = useRestockToTenRule
             ? product.storeStock < RESTOCK_TO_TEN_MINIMUM
             : product.storeStock > 0 && product.storeStock < 3
 
-        if (shouldRestock && product.centralStock > 0) {
+        if (
+            shouldRestock &&
+            product.centralStock > 0 &&
+            (product.storeStock > 0 || !hasStoreStockAtDifferentPrice)
+        ) {
             const targetStoreStock = useRestockToTenRule ? RESTOCK_TO_TEN_TARGET : 3
             const restockProduct = {
                 name: product.name,
@@ -632,13 +662,12 @@ function analyzeStock() {
         }
     }
 
-    const sortByName = (a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' })
-    results.sort(sortByName)
-    excludedCentralResults.sort(sortByName)
-    restockResults.sort(sortByName)
-    excludedRestockResults.sort(sortByName)
-    stopResults.sort(sortByName)
-    allStockResults.sort(sortByName)
+    results.sort(compareProductsByName)
+    excludedCentralResults.sort(compareProductsByName)
+    restockResults.sort(compareProductsByName)
+    excludedRestockResults.sort(compareProductsByName)
+    stopResults.sort(compareProductsByName)
+    allStockResults.sort(compareProductsByName)
 
     for (const product of [...results, ...stopResults, ...restockResults]) {
         const matchedAllStock = allStockResults.find(item => getProductKey(item) === getProductKey(product))
@@ -883,7 +912,7 @@ function getTransferItems() {
             seen.add(key)
             return true
         })
-        .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
+        .sort(compareProductsByName)
 }
 
 function getNotInTransferItems() {
@@ -895,7 +924,7 @@ function getNotInTransferItems() {
             seen.add(key)
             return parseStock(product.transferQuantity) <= 0
         })
-        .sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }))
+        .sort(compareProductsByName)
 }
 
 function updateTransferCount() {
@@ -910,11 +939,6 @@ function renderTransferTable(products, isExcludedList = false) {
         const storeStockCell = addCell(row, formatStock(product.storeStock ?? 0))
         storeStockCell.classList.add('count-column')
         const centralStock = parseStock(product.centralStock ?? product.stock) ?? 0
-        const transferQuantity = parseStock(product.transferQuantity) ?? 0
-        const accordTotal = document.createElement('span')
-        accordTotal.className = 'transfer-store-total'
-        accordTotal.textContent = formatStock(centralStock + transferQuantity)
-        storeStockCell.appendChild(accordTotal)
         const centralStockCell = addCell(row, formatStock(centralStock))
         centralStockCell.classList.add('central-stock-column')
         const priceCell = addCell(row, formatPrice(product.price ?? product.salePrice ?? product.purchasePrice ?? ''))
@@ -988,11 +1012,6 @@ function addTransferQuantityCell(row, product, isTransferTable = false, isExclud
         }
         product.transferQuantity = quantityInput.value
         syncTransferQuantityAcrossLists(getProductKey(product), product.transferQuantity)
-        const transferStoreTotal = row.querySelector('.transfer-store-total')
-        if (transferStoreTotal) {
-            const centralStock = parseStock(product.centralStock ?? product.stock) ?? 0
-            transferStoreTotal.textContent = formatStock(centralStock + (parseStock(product.transferQuantity) ?? 0))
-        }
         updateTransferCount()
         if (activeList === 'transfer') {
             const hasTransferItems = getTransferItems().length > 0
@@ -1196,7 +1215,7 @@ function printTransferResults(position, date, isPreview = false) {
 
     const totalQuantity = transferItems.reduce((sum, product) => sum + (parseStock(product.transferQuantity) ?? 0), 0)
     const totalAmount = transferItems.reduce(
-        (sum, product) => sum + (parseStock(product.transferQuantity) ?? 0) * (parseStock(product.price) ?? 0),
+        (sum, product) => sum + (parseStock(product.transferQuantity) ?? 0) * (parsePrice(product.price) ?? 0),
         0,
     )
 
@@ -1218,7 +1237,12 @@ function printTransferResults(position, date, isPreview = false) {
                     <span class="print-product-barcode">${barcodeMarkup}</span>
                   </div>
                 </td>
-                <td class="price-cell">${escapeHtml(formatPrice(product.price))}</td>
+                <td class="price-cell">
+                  <span>${escapeHtml(formatPrice(product.price))}</span>
+                  <span class="print-item-total">${escapeHtml(
+                      formatPrice(String(quantity * (parsePrice(product.price) ?? 0))),
+                  )}</span>
+                </td>
                 <td class="qty-cell">${escapeHtml(String(quantity))}</td>
                 <td class="empty-price-cell">&nbsp;</td>
               </tr>
@@ -1400,6 +1424,12 @@ function printTransferResults(position, date, isPreview = false) {
           .empty-price-cell {
             text-align: left;
           }
+                    .print-item-total {
+                        display: block;
+                        color: #8a8a91;
+                        font-size: 8px;
+                        line-height: 1.1;
+                    }
                     .price-cell,
                     .qty-cell {
                         font-size: 14px;

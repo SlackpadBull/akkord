@@ -248,6 +248,7 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
     gap: 0;
     margin-top: 16px;
+    margin-bottom: 16px;
 }
 
 .print-date-option {
@@ -701,14 +702,6 @@ table {
     min-width: 60px;
     max-width: 60px;
     white-space: nowrap;
-}
-
-.transfer-store-total {
-    display: block;
-    margin-top: 2px;
-    color: #8a8a91;
-    font-size: 10px;
-    line-height: 1.2;
 }
 
 .price-column {
