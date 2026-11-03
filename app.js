@@ -1349,9 +1349,9 @@ function printTransferResults(position, date, isPreview = false) {
             table-layout: fixed;
             text-align: left;
           }
-          th:nth-child(1), td:nth-child(1) { width: 75%; }
-          th:nth-child(2), td:nth-child(2) { width: 12%; }
-          th:nth-child(3), td:nth-child(3) { width: 5%; }
+          th:nth-child(1), td:nth-child(1) { width: 79%; }
+          th:nth-child(2), td:nth-child(2) { width: 9%; }
+          th:nth-child(3), td:nth-child(3) { width: 4%; }
           th:nth-child(4), td:nth-child(4) { width: 8%; }
           th, td {
                         padding: 1.5px 4px;
