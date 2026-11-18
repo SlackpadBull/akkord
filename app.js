@@ -752,6 +752,9 @@ function analyzeStock() {
 
         const statusCount = document.createElement('span')
         statusCount.textContent = String(count)
+        if (index === 1 && count > 0) {
+            statusCount.classList.add('status-count-error')
+        }
         group.append(statusIcon, statusCount)
         statusEl.append(group)
     })

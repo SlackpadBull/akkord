@@ -524,6 +524,10 @@ button:disabled {
     line-height: 1;
 }
 
+.status-count-error {
+    color: #b42318;
+}
+
 .status.error {
     color: #b42318;
 }
@@ -543,7 +547,7 @@ button:disabled {
     min-height: 40px;
     padding: 3px 5px 3px 8px;
     border: 1px solid #d9d9d4;
-    border-radius: 5px;
+    border-radius: 8px;
     color: #202124;
     font: inherit;
     text-align: left;
@@ -561,6 +565,7 @@ button:disabled {
     align-items: center;
     justify-content: center;
     color: #626269;
+    font: inherit;
     pointer-events: none;
 }
 
@@ -626,6 +631,10 @@ body.has-results .file-label {
     border: 1px solid #d9d9d4;
     font-size: 14px;
     text-align: left;
+}
+
+body.has-results .amount-label {
+    font-size: 14px;
 }
 
 body.has-results .file-label #fileName {
