@@ -15,7 +15,6 @@
             <section class="upload-section">
                 <label class="file-label" for="excelFile">
                     <span class="upload-title">Анализ остатков</span>
-                    <!-- 123123 -->
                     <span class="file-action">
                         <span class="action-name">Анализ</span>
                         <span id="fileName">Выберите Excel-файл</span>
@@ -28,6 +27,28 @@
                 </label>
 
                 <p id="status" class="status" aria-live="polite"></p>
+                <div class="amount-calculator">
+                    <output id="amountResult" class="amount-result" aria-live="polite"></output>
+                    <div class="amount-input-wrap">
+                        <input
+                            id="amountInput"
+                            class="amount-input"
+                            type="text"
+                            inputmode="numeric"
+                            autocomplete="off"
+                            placeholder=" "
+                            aria-label="Сумма" />
+                        <label class="amount-label" for="amountInput">Сумма</label>
+                        <span
+                            id="amountMaxFeedback"
+                            class="transfer-max-feedback"
+                            role="status"
+                            aria-live="polite"
+                            hidden>
+                            Max
+                        </span>
+                    </div>
+                </div>
             </section>
 
             <section id="results" hidden>

@@ -102,6 +102,9 @@ const fileInput = document.getElementById('excelFile')
 const fileName = document.getElementById('fileName')
 const exportBtn = document.getElementById('exportBtn')
 const statusEl = document.getElementById('status')
+const amountInput = document.getElementById('amountInput')
+const amountResult = document.getElementById('amountResult')
+const amountMaxFeedback = document.getElementById('amountMaxFeedback')
 const resultsSection = document.getElementById('results')
 const resultsBody = document.getElementById('resultsBody')
 const resultsHeadings = document.getElementById('resultsHeadings')
@@ -146,6 +149,50 @@ let transferView = 'items'
 let selectedFileName = ''
 let scrollbarDragStart = null
 let scrollbarUpdateScheduled = false
+let amountMaxFeedbackTimeout
+
+function formatGroupedDigits(digits) {
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}
+
+function showAmountMaxFeedback() {
+    amountMaxFeedback.hidden = false
+    amountMaxFeedback.classList.remove('is-visible')
+    void amountMaxFeedback.offsetWidth
+    amountMaxFeedback.classList.add('is-visible')
+
+    clearTimeout(amountMaxFeedbackTimeout)
+    amountMaxFeedbackTimeout = setTimeout(() => {
+        amountMaxFeedback.classList.remove('is-visible')
+        amountMaxFeedback.hidden = true
+    }, 2000)
+}
+
+amountInput.addEventListener('input', () => {
+    const rawValue = amountInput.value
+    const selectionStart = amountInput.selectionStart ?? rawValue.length
+    const digitsBeforeCaret = rawValue.slice(0, selectionStart).replace(/\D/g, '').length
+    const enteredDigits = rawValue.replace(/\D/g, '')
+    const digits = enteredDigits.slice(0, 7)
+    const formattedValue = formatGroupedDigits(digits)
+
+    if (enteredDigits.length > 7) {
+        showAmountMaxFeedback()
+    }
+
+    amountInput.value = formattedValue
+    let caretPosition = 0
+    let digitsAtCaret = 0
+    while (caretPosition < formattedValue.length && digitsAtCaret < digitsBeforeCaret) {
+        if (/\d/.test(formattedValue[caretPosition])) digitsAtCaret += 1
+        caretPosition += 1
+    }
+    amountInput.setSelectionRange(caretPosition, caretPosition)
+
+    amountResult.textContent = digits
+        ? formatGroupedDigits(String(Math.round(Number(digits) * 0.03 + 2500)))
+        : ''
+})
 
 function updatePageScrollbar() {
     scrollbarUpdateScheduled = false
@@ -685,7 +732,29 @@ function analyzeStock() {
     renderResults()
 
     statusEl.className = 'status'
-    statusEl.textContent = `Проверено: ${matchedRows}, пропущено: ${skippedRows}`
+    statusEl.replaceChildren()
+
+    const statusCounts = [
+        { icon: '✓', label: 'Проверено', count: matchedRows },
+        { icon: '✗', label: 'Пропущено', count: skippedRows },
+    ]
+    statusCounts.forEach(({ icon, label, count }, index) => {
+        if (index > 0) statusEl.append(document.createTextNode(', '))
+
+        const group = document.createElement('span')
+        group.className = 'status-count'
+        group.setAttribute('aria-label', `${label}: ${count}`)
+
+        const statusIcon = document.createElement('span')
+        statusIcon.className = 'status-icon'
+        statusIcon.setAttribute('aria-hidden', 'true')
+        statusIcon.textContent = icon
+
+        const statusCount = document.createElement('span')
+        statusCount.textContent = String(count)
+        group.append(statusIcon, statusCount)
+        statusEl.append(group)
+    })
 }
 
 function renderResults() {
