@@ -82,6 +82,15 @@
                     </button>
                     <button
                         type="button"
+                        id="revisionTab"
+                        class="tab-button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="revisionPanel">
+                        Ревизия 0
+                    </button>
+                    <button
+                        type="button"
                         id="allStockTab"
                         class="tab-button"
                         role="tab"
@@ -107,10 +116,12 @@
                                 </p>
                             </div>
                         </div>
-                        <button id="exportBtn" class="secondary-btn" disabled hidden>Экспорт в Excel</button>
+                        <div class="all-stock-actions">
+                            <button id="exportBtn" class="secondary-btn" disabled hidden>Экспорт в Excel</button>
+                        </div>
                     </div>
 
-                    <div class="table-wrapper">
+                    <div id="allStockTableWrapper" class="table-wrapper" tabindex="0" aria-label="Таблица всех остатков">
                         <table>
                             <thead>
                                 <tr id="resultsHeadings"></tr>
@@ -170,6 +181,33 @@
                     <div class="transfer-export-actions">
                         <button id="transferExportBtn" class="secondary-btn" disabled>Экспорт в Excel</button>
                     </div>
+                </div>
+
+                <div id="revisionPanel" role="tabpanel" aria-labelledby="revisionTab" hidden>
+                    <div class="results-header">
+                        <div class="results-heading">
+                            <h2>Ревизия</h2>
+                            <p id="revisionMessage" class="revision-message" aria-live="polite"></p>
+                        </div>
+                        <button id="revisionExportBtn" class="secondary-btn" disabled>Экспорт в Excel</button>
+                    </div>
+
+                    <div id="revisionTableWrapper" class="table-wrapper revision-table-wrapper" tabindex="0" aria-label="Таблица ревизии. Просканируйте товар">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Название</th>
+                                    <th class="count-column">Ак</th>
+                                    <th class="central-stock-column">ЦС</th>
+                                    <th class="price-column">Цена</th>
+                                    <th class="barcode-column">Штрихкод</th>
+                                    <th class="same-width-column">Факт</th>
+                                </tr>
+                            </thead>
+                            <tbody id="revisionBody"></tbody>
+                        </table>
+                    </div>
+                    <p id="revisionEmptyMessage" class="empty-message">Просканируйте товар</p>
                 </div>
 
                 <dialog id="transferPrintDialog" class="print-position-dialog" aria-labelledby="printPositionTitle">

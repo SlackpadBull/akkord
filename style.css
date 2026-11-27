@@ -384,6 +384,7 @@ button:disabled {
     padding: 3px 5px 3px 5px;
     border: 0px solid #d9d9d4;
     border-radius: 5px;
+    background: transparent;
     color: #202124;
     font: inherit;
     text-align: center;
@@ -484,7 +485,7 @@ button:disabled {
     padding: 0;
     border: 0px solid #d9d9d4;
     border-radius: 0;
-    background: #fff;
+    background: transparent;
     color: #34343b;
     font-size: 16px;
     line-height: 1;
@@ -692,8 +693,12 @@ body.has-results .amount-result:empty {
     color: #3434b8;
 }
 
-#allStockTab {
+#revisionTab {
     margin-left: auto;
+}
+
+#allStockTab {
+    margin-left: 0;
 }
 
 .results-header {
@@ -704,11 +709,43 @@ body.has-results .amount-result:empty {
     margin-bottom: 20px;
 }
 
+.all-stock-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 .results-heading {
     display: flex;
     min-width: 0;
     flex-direction: column;
     gap: 8px;
+}
+
+.revision-table-wrapper:focus,
+#allStockTableWrapper:focus {
+    border-color: #5b5cf6;
+    outline: none;
+}
+
+.revision-message {
+    min-height: 18px;
+    margin: 0;
+    color: #626269;
+    font-size: 14px;
+}
+
+.revision-message.is-warning {
+    color: #8a5700;
+}
+
+.revision-message.is-error {
+    color: #b42318;
+}
+
+.revision-fact.is-different {
+    color: #b42318;
 }
 
 .text-link {
@@ -779,6 +816,18 @@ table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+}
+
+.all-stock-match > td {
+    box-shadow: inset 0 1px #5b5cf6, inset 0 -1px #5b5cf6;
+}
+
+.all-stock-match > td:first-child {
+    box-shadow: inset 1px 0 #5b5cf6, inset 0 1px #5b5cf6, inset 0 -1px #5b5cf6;
+}
+
+.all-stock-match > td:last-child {
+    box-shadow: inset -1px 0 #5b5cf6, inset 0 1px #5b5cf6, inset 0 -1px #5b5cf6;
 }
 
 .count-column,

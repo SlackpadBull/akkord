@@ -108,6 +108,7 @@ const amountMaxFeedback = document.getElementById('amountMaxFeedback')
 const resultsSection = document.getElementById('results')
 const resultsBody = document.getElementById('resultsBody')
 const resultsHeadings = document.getElementById('resultsHeadings')
+const allStockTableWrapper = document.getElementById('allStockTableWrapper')
 const stopSection = document.getElementById('stopSection')
 const stopResultsHeadings = document.getElementById('stopResultsHeadings')
 const stopResultsBody = document.getElementById('stopResultsBody')
@@ -118,11 +119,18 @@ const centralTab = document.getElementById('centralTab')
 const restockTab = document.getElementById('restockTab')
 const allStockTab = document.getElementById('allStockTab')
 const transferTab = document.getElementById('transferTab')
+const revisionTab = document.getElementById('revisionTab')
 const exceptionsLink = document.getElementById('exceptionsLink')
 const restockBackLink = document.getElementById('restockBackLink')
 const resultsPanel = document.getElementById('resultsPanel')
 const transferPanel = document.getElementById('transferPanel')
+const revisionPanel = document.getElementById('revisionPanel')
 const transferBody = document.getElementById('transferBody')
+const revisionBody = document.getElementById('revisionBody')
+const revisionTableWrapper = document.getElementById('revisionTableWrapper')
+const revisionMessage = document.getElementById('revisionMessage')
+const revisionEmptyMessage = document.getElementById('revisionEmptyMessage')
+const revisionExportBtn = document.getElementById('revisionExportBtn')
 const transferEmptyMessage = document.getElementById('transferEmptyMessage')
 const transferExportBtn = document.getElementById('transferExportBtn')
 const transferPrintBtn = document.getElementById('transferPrintBtn')
@@ -143,6 +151,7 @@ let excludedCentralResults = []
 let restockResults = []
 let excludedRestockResults = []
 let allStockResults = []
+let revisionResults = []
 let stopResults = []
 let activeList = 'central'
 let transferView = 'items'
@@ -150,6 +159,10 @@ let selectedFileName = ''
 let scrollbarDragStart = null
 let scrollbarUpdateScheduled = false
 let amountMaxFeedbackTimeout
+let revisionBarcodeBuffer = ''
+let revisionBarcodeBufferTimeout
+let allStockBarcodeBuffer = ''
+let allStockBarcodeBufferTimeout
 
 function formatGroupedDigits(digits) {
     return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -298,6 +311,9 @@ fileInput.addEventListener('change', async () => {
     restockResults = []
     excludedRestockResults = []
     allStockResults = []
+    allStockBarcodeBuffer = ''
+    clearTimeout(allStockBarcodeBufferTimeout)
+    revisionResults = []
     stopResults = []
     activeList = 'central'
     transferView = 'items'
@@ -309,6 +325,13 @@ fileInput.addEventListener('change', async () => {
     allStockTab.setAttribute('aria-selected', 'false')
     transferTab.classList.remove('is-active')
     transferTab.setAttribute('aria-selected', 'false')
+    revisionTab.classList.remove('is-active')
+    revisionTab.setAttribute('aria-selected', 'false')
+    revisionPanel.hidden = true
+    revisionExportBtn.disabled = true
+    revisionEmptyMessage.hidden = false
+    revisionMessage.textContent = ''
+    revisionMessage.classList.remove('is-error', 'is-warning')
     resultsPanel.setAttribute('aria-labelledby', 'centralTab')
     exportBtn.disabled = true
     resultsSection.hidden = true
@@ -348,6 +371,50 @@ fileInput.addEventListener('change', async () => {
 })
 
 exportBtn.addEventListener('click', exportResults)
+document.addEventListener('keydown', event => {
+    if (activeList !== 'all-stock') return
+    if (event.target instanceof HTMLElement && event.target.matches('input, textarea, select, [contenteditable="true"]')) {
+        return
+    }
+
+    if (event.key === 'Enter') {
+        if (!allStockBarcodeBuffer) return
+        event.preventDefault()
+        allStockBarcodeBuffer = ''
+        clearTimeout(allStockBarcodeBufferTimeout)
+        return
+    }
+
+    if (!/^\d$/.test(event.key) || event.ctrlKey || event.altKey || event.metaKey) return
+
+    event.preventDefault()
+    allStockBarcodeBuffer += event.key
+    clearTimeout(allStockBarcodeBufferTimeout)
+    allStockBarcodeBufferTimeout = setTimeout(() => {
+        allStockBarcodeBuffer = ''
+    }, 1200)
+
+    if (allStockBarcodeBuffer.length === 13) {
+        scrollToAllStockMatch(allStockBarcodeBuffer)
+        allStockBarcodeBuffer = ''
+        clearTimeout(allStockBarcodeBufferTimeout)
+    } else if (allStockBarcodeBuffer.length > 13) {
+        allStockBarcodeBuffer = ''
+    }
+})
+document.addEventListener('click', () => {
+    resultsBody.querySelectorAll('.all-stock-match').forEach(row => row.classList.remove('all-stock-match'))
+    allStockBarcodeBuffer = ''
+    clearTimeout(allStockBarcodeBufferTimeout)
+})
+resultsPanel.addEventListener('focusout', event => {
+    if (!event.target.matches('.transfer-quantity:not(.revision-fact), .transfer-quantity-button')) return
+
+    window.setTimeout(() => {
+        if (activeList === 'all-stock') allStockTableWrapper.focus({ preventScroll: true })
+    }, 0)
+})
+revisionExportBtn.addEventListener('click', exportRevisionResults)
 transferExportBtn.addEventListener('click', exportTransferResults)
 transferPrintBtn.addEventListener('click', requestTransferPrint)
 transferPrintDialog.querySelectorAll('[data-print-position]').forEach(button => {
@@ -390,6 +457,41 @@ transferPrintDateOptions.forEach((button, index) => {
 centralTab.addEventListener('click', () => selectResultsTab('central'))
 restockTab.addEventListener('click', () => selectResultsTab('restock'))
 allStockTab.addEventListener('click', () => selectResultsTab('all-stock'))
+revisionTab.addEventListener('click', () => selectResultsTab('revision'))
+revisionTableWrapper.addEventListener('keydown', event => {
+    if (event.target !== revisionTableWrapper) return
+
+    if (event.key === 'Enter') {
+        event.preventDefault()
+        scanRevisionBarcode(revisionBarcodeBuffer)
+        revisionBarcodeBuffer = ''
+        clearTimeout(revisionBarcodeBufferTimeout)
+        return
+    }
+
+    if (event.key.length !== 1 || event.ctrlKey || event.altKey || event.metaKey) return
+
+    event.preventDefault()
+    revisionBarcodeBuffer += event.key
+    clearTimeout(revisionBarcodeBufferTimeout)
+    revisionBarcodeBufferTimeout = setTimeout(() => {
+        revisionBarcodeBuffer = ''
+    }, 1500)
+})
+revisionTableWrapper.addEventListener('click', event => {
+    if (!event.target.closest('input, button')) revisionTableWrapper.focus()
+})
+revisionPanel.addEventListener('focusout', () => {
+    window.setTimeout(() => {
+        const activeElement = document.activeElement
+        if (
+            activeList === 'revision' &&
+            !activeElement?.matches('.revision-fact, .transfer-quantity-button')
+        ) {
+            revisionTableWrapper.focus()
+        }
+    }, 0)
+})
 transferTab.addEventListener('click', () => {
     transferView = 'items'
     selectResultsTab('transfer')
@@ -761,11 +863,33 @@ function analyzeStock() {
 }
 
 function renderResults() {
+    if (activeList === 'revision') {
+        resultsPanel.hidden = true
+        transferPanel.hidden = true
+        revisionPanel.hidden = false
+        transferTab.classList.remove('is-active')
+        transferTab.setAttribute('aria-selected', 'false')
+        revisionTab.classList.add('is-active')
+        revisionTab.setAttribute('aria-selected', 'true')
+        centralTab.classList.remove('is-active')
+        centralTab.setAttribute('aria-selected', 'false')
+        restockTab.classList.remove('is-active')
+        restockTab.setAttribute('aria-selected', 'false')
+        allStockTab.classList.remove('is-active')
+        allStockTab.setAttribute('aria-selected', 'false')
+        revisionTab.textContent = `Ревизия ${revisionResults.length}`
+        renderRevisionTable()
+        return
+    }
+
     if (activeList === 'transfer') {
         const transferItems = getTransferItems()
         const excludedTransferItems = getNotInTransferItems()
         resultsPanel.hidden = true
         transferPanel.hidden = false
+        revisionPanel.hidden = true
+        revisionTab.classList.remove('is-active')
+        revisionTab.setAttribute('aria-selected', 'false')
         transferTab.textContent = `Перемещение ${transferItems.length}`
         transferExcludedLink.hidden = transferView === 'excluded' || excludedTransferItems.length === 0
         transferExcludedLink.textContent = `Не вошло в перемещение · ${excludedTransferItems.length}`
@@ -789,6 +913,9 @@ function renderResults() {
 
     resultsPanel.hidden = false
     transferPanel.hidden = true
+    revisionPanel.hidden = true
+    revisionTab.classList.remove('is-active')
+    revisionTab.setAttribute('aria-selected', 'false')
     updateTransferCount()
     transferTab.classList.remove('is-active')
     transferTab.setAttribute('aria-selected', 'false')
@@ -808,7 +935,6 @@ function renderResults() {
             : activeList === 'exceptions'
               ? excludedRestockResults
               : restockResults
-
     exceptionsLink.hidden = isExceptionsList || isAllStockList
     exceptionsLink.textContent = isRestockList
         ? `Исключения · ${excludedRestockResults.length}`
@@ -853,6 +979,7 @@ function renderResults() {
 
     for (const product of activeResults) {
         const tr = document.createElement('tr')
+        if (isAllStockList) tr.dataset.barcode = normalizeBarcode(product.barcode)
 
         if (isAllStockList) {
             addCell(tr, product.name)
@@ -945,6 +1072,7 @@ function renderResults() {
     centralTab.textContent = `Только на центральном ${results.length}`
     restockTab.textContent = `Нужно пополнить ${restockResults.length}`
     allStockTab.textContent = `Все остатки ${allStockResults.length}`
+    revisionTab.textContent = `Ревизия ${revisionResults.length}`
     const isCentralActive = isCentralList || isCentralExceptionsList
     const isRestockActive = activeList === 'restock' || activeList === 'exceptions'
     centralTab.classList.toggle('is-active', isCentralActive)
@@ -953,6 +1081,7 @@ function renderResults() {
     restockTab.setAttribute('aria-selected', String(isRestockActive))
     allStockTab.classList.toggle('is-active', isAllStockList)
     allStockTab.setAttribute('aria-selected', String(isAllStockList))
+    revisionTab.setAttribute('aria-selected', 'false')
     resultsPanel.setAttribute(
         'aria-labelledby',
         isAllStockList ? 'allStockTab' : isRestockActive ? 'restockTab' : 'centralTab',
@@ -972,6 +1101,15 @@ function renderResults() {
     document.body.classList.add('has-results')
     exportBtn.disabled = activeResults.length === 0
     exportBtn.hidden = !isAllStockList
+}
+
+function scrollToAllStockMatch(barcode) {
+    resultsBody.querySelectorAll('.all-stock-match').forEach(row => row.classList.remove('all-stock-match'))
+    const match = Array.from(resultsBody.rows).find(row => row.dataset.barcode === barcode)
+    if (!match) return
+
+    match.classList.add('all-stock-match')
+    match.scrollIntoView({ block: 'center', inline: 'nearest' })
 }
 
 function getTransferItems() {
@@ -1002,6 +1140,132 @@ function getNotInTransferItems() {
 
 function updateTransferCount() {
     transferTab.textContent = `Перемещение ${getTransferItems().length}`
+}
+
+function scanRevisionBarcode(value) {
+    const barcode = normalizeBarcode(value)
+    if (!barcode) return
+
+    const product = allStockResults.find(item => normalizeBarcode(item.barcode) === barcode)
+    if (!product) {
+        revisionMessage.textContent = `Товар со штрихкодом ${barcode} не найден`
+        revisionMessage.classList.remove('is-warning')
+        revisionMessage.classList.add('is-error')
+        return
+    }
+
+    const alreadyAdded = revisionResults.some(item => normalizeBarcode(item.barcode) === barcode)
+    if (alreadyAdded) {
+        revisionMessage.textContent = `Товар уже в списке: ${product.name}`
+        revisionMessage.classList.remove('is-error')
+        revisionMessage.classList.add('is-warning')
+        return
+    }
+
+    revisionResults.unshift({
+        ...product,
+        factQuantity: String(parseStock(product.storeStock) ?? 0),
+        zeroFactDecrementCount: 0,
+    })
+    revisionMessage.textContent = `Добавлен товар: ${product.name}`
+    revisionMessage.classList.remove('is-error', 'is-warning')
+    revisionEmptyMessage.hidden = true
+    revisionExportBtn.disabled = false
+    revisionTab.textContent = `Ревизия ${revisionResults.length}`
+    renderRevisionTable()
+}
+
+function renderRevisionTable() {
+    revisionBody.replaceChildren()
+    for (const product of revisionResults) {
+        const row = document.createElement('tr')
+        addCell(row, product.name)
+        const storeStockCell = addCell(row, formatStock(product.storeStock ?? 0))
+        storeStockCell.classList.add('count-column')
+        const centralStockCell = addCell(row, formatStock(product.centralStock ?? 0))
+        centralStockCell.classList.add('central-stock-column')
+        const priceCell = addCell(row, formatPrice(product.salePrice ?? product.price ?? ''))
+        priceCell.classList.add('price-column')
+        const barcodeCell = addCell(row, product.barcode)
+        barcodeCell.classList.add('barcode-column')
+        addRevisionFactCell(row, product)
+        revisionBody.appendChild(row)
+    }
+
+    revisionEmptyMessage.hidden = revisionResults.length !== 0
+    revisionExportBtn.disabled = revisionResults.length === 0
+    revisionTab.textContent = `Ревизия ${revisionResults.length}`
+}
+
+function addRevisionFactCell(row, product) {
+    const cell = document.createElement('td')
+    cell.className = 'transfer-quantity-cell same-width-column'
+    const controls = document.createElement('div')
+    controls.className = 'transfer-quantity-controls'
+    const factInput = document.createElement('input')
+    factInput.className = 'transfer-quantity revision-fact'
+    factInput.type = 'number'
+    factInput.min = '0'
+    factInput.step = 'any'
+    factInput.value = String(parseStock(product.factQuantity) ?? 0)
+    factInput.setAttribute('aria-label', `Фактическое количество: ${product.name}`)
+
+    const updateFact = () => {
+        const quantity = parseStock(factInput.value)
+        if (quantity !== null) {
+            const boundedQuantity = Math.max(0, quantity)
+            factInput.value = String(boundedQuantity)
+            product.factQuantity = String(boundedQuantity)
+            if (boundedQuantity > 0) {
+                product.zeroFactDecrementCount = 0
+                revisionMessage.textContent = ''
+            }
+        } else if (!factInput.value.trim()) {
+            product.factQuantity = ''
+        }
+        factInput.classList.toggle(
+            'is-different',
+            (parseStock(product.factQuantity) ?? 0) !== (parseStock(product.storeStock) ?? 0),
+        )
+    }
+    factInput.addEventListener('input', updateFact)
+    updateFact()
+
+    const createButton = (label, delta, accessibleLabel) => {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.className = 'transfer-quantity-button'
+        button.textContent = label
+        button.setAttribute('aria-label', `${accessibleLabel}: ${product.name}`)
+        button.addEventListener('click', () => {
+            const currentQuantity = parseStock(factInput.value) ?? 0
+            if (delta < 0 && currentQuantity === 0) {
+                product.zeroFactDecrementCount = (product.zeroFactDecrementCount ?? 0) + 1
+                if (product.zeroFactDecrementCount >= 5) {
+                    revisionResults.splice(revisionResults.indexOf(product), 1)
+                    revisionMessage.textContent = `Удалён товар: ${product.name}`
+                    revisionMessage.classList.remove('is-error', 'is-warning')
+                    renderRevisionTable()
+                    return
+                }
+                revisionMessage.textContent = `Для удаления ${product.name} нажмите «−» ещё ${5 - product.zeroFactDecrementCount} раз`
+            } else if (delta > 0 || currentQuantity > 0) {
+                product.zeroFactDecrementCount = 0
+                revisionMessage.textContent = ''
+            }
+            factInput.value = String(Math.max(0, currentQuantity + delta))
+            updateFact()
+        })
+        return button
+    }
+
+    controls.append(
+        factInput,
+        createButton('−', -1, 'Уменьшить факт'),
+        createButton('+', 1, 'Увеличить факт'),
+    )
+    cell.appendChild(controls)
+    row.appendChild(cell)
 }
 
 function renderTransferTable(products, isExcludedList = false) {
@@ -1147,6 +1411,7 @@ function selectResultsTab(tab) {
     const isCentralList = tab === 'central'
     const isRestockList = tab === 'restock'
     const isAllStockList = tab === 'all-stock'
+    const isRevisionList = tab === 'revision'
 
     centralTab.classList.toggle('is-active', isCentralList)
     centralTab.setAttribute('aria-selected', String(isCentralList))
@@ -1154,12 +1419,22 @@ function selectResultsTab(tab) {
     restockTab.setAttribute('aria-selected', String(isRestockList))
     allStockTab.classList.toggle('is-active', isAllStockList)
     allStockTab.setAttribute('aria-selected', String(isAllStockList))
+    revisionTab.classList.toggle('is-active', isRevisionList)
+    revisionTab.setAttribute('aria-selected', String(isRevisionList))
     resultsPanel.setAttribute(
         'aria-labelledby',
-        isCentralList ? 'centralTab' : isRestockList ? 'restockTab' : 'allStockTab',
+        isRevisionList
+            ? 'revisionTab'
+            : isCentralList
+              ? 'centralTab'
+              : isRestockList
+                ? 'restockTab'
+                : 'allStockTab',
     )
 
     renderResults()
+    if (isRevisionList) revisionTableWrapper.focus()
+    if (isAllStockList) allStockTableWrapper.focus({ preventScroll: true })
 }
 
 function selectRestockView(view) {
@@ -1657,6 +1932,59 @@ function escapeHtml(value) {
                 "'": '&#39;',
             })[character],
     )
+}
+
+async function exportRevisionResults() {
+    if (!revisionResults.length) return
+
+    const data = [
+        ['Название', 'Ак', 'Разн', 'Цена', 'Штрихкод', 'Факт'],
+        ...revisionResults.map(product => {
+            const storeStock = parseStock(product.storeStock) ?? 0
+            const factQuantity = parseStock(product.factQuantity) ?? 0
+            const difference = factQuantity - storeStock
+            return [
+                product.name,
+                storeStock,
+                difference === 0 ? '' : `${difference > 0 ? '+' : ''}${formatStock(difference)}`,
+                formatPrice(product.salePrice ?? product.price ?? ''),
+                product.barcode,
+                factQuantity,
+            ]
+        }),
+    ]
+
+    const worksheet = XLSX.utils.aoa_to_sheet(data)
+    worksheet['!cols'] = [{ wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 24 }, { wch: 12 }]
+    const exportWorkbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(exportWorkbook, worksheet, 'Ревизия')
+    const fileName = `Ревизия ${formatExportDate()}.xlsx`
+
+    if (typeof window.showSaveFilePicker !== 'function') {
+        XLSX.writeFile(exportWorkbook, fileName)
+        return
+    }
+
+    try {
+        const fileHandle = await window.showSaveFilePicker({
+            suggestedName: fileName.replace(/\.xlsx$/i, ''),
+            types: [
+                {
+                    description: 'Книга Excel',
+                    accept: {
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+                    },
+                },
+            ],
+        })
+        const fileContents = XLSX.write(exportWorkbook, { bookType: 'xlsx', type: 'array' })
+        const writable = await fileHandle.createWritable()
+        await writable.write(fileContents)
+        await writable.close()
+    } catch (error) {
+        if (error.name === 'AbortError') return
+        setError(`Не удалось сохранить файл ревизии: ${error.message}`)
+    }
 }
 
 function exportResults() {
