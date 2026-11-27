@@ -109,6 +109,9 @@ const resultsSection = document.getElementById('results')
 const resultsBody = document.getElementById('resultsBody')
 const resultsHeadings = document.getElementById('resultsHeadings')
 const allStockTableWrapper = document.getElementById('allStockTableWrapper')
+const allStockSelectiveExportLink = document.getElementById('allStockSelectiveExportLink')
+const cancelSelectiveExportBtn = document.getElementById('cancelSelectiveExportBtn')
+const selectiveExportBtn = document.getElementById('selectiveExportBtn')
 const stopSection = document.getElementById('stopSection')
 const stopResultsHeadings = document.getElementById('stopResultsHeadings')
 const stopResultsBody = document.getElementById('stopResultsBody')
@@ -127,10 +130,20 @@ const transferPanel = document.getElementById('transferPanel')
 const revisionPanel = document.getElementById('revisionPanel')
 const transferBody = document.getElementById('transferBody')
 const revisionBody = document.getElementById('revisionBody')
+const revisionSelectionBody = document.getElementById('revisionSelectionBody')
+const revisionSelectionView = document.getElementById('revisionSelectionView')
+const revisionWorkView = document.getElementById('revisionWorkView')
+const revisionSelectionActions = document.getElementById('revisionSelectionActions')
+const revisionWorkActions = document.getElementById('revisionWorkActions')
+const revisionTitle = document.getElementById('revisionTitle')
+const revisionStartBtn = document.getElementById('revisionStartBtn')
+const revisionChooseBtn = document.getElementById('revisionChooseBtn')
+const revisionSelectionEmptyMessage = document.getElementById('revisionSelectionEmptyMessage')
 const revisionTableWrapper = document.getElementById('revisionTableWrapper')
 const revisionMessage = document.getElementById('revisionMessage')
 const revisionEmptyMessage = document.getElementById('revisionEmptyMessage')
 const revisionExportBtn = document.getElementById('revisionExportBtn')
+const revisionSort = document.getElementById('revisionSort')
 const transferEmptyMessage = document.getElementById('transferEmptyMessage')
 const transferExportBtn = document.getElementById('transferExportBtn')
 const transferPrintBtn = document.getElementById('transferPrintBtn')
@@ -151,7 +164,16 @@ let excludedCentralResults = []
 let restockResults = []
 let excludedRestockResults = []
 let allStockResults = []
+let selectedAllStockBarcodes = new Set()
+let allStockSelectionAnchor = ''
+let isSelectingAllStockForExport = false
 let revisionResults = []
+let selectedRevisionBarcodes = new Set()
+let revisionSelectionAnchor = ''
+let revisionMode = 'select'
+let selectedRevisionBarcode = ''
+let revisionRepeatHintBarcode = ''
+let revisionSortMode = 'default'
 let stopResults = []
 let activeList = 'central'
 let transferView = 'items'
@@ -311,9 +333,20 @@ fileInput.addEventListener('change', async () => {
     restockResults = []
     excludedRestockResults = []
     allStockResults = []
+    selectedAllStockBarcodes = new Set()
+    allStockSelectionAnchor = ''
+    isSelectingAllStockForExport = false
+    allStockSelectiveExportLink.textContent = 'Выборочный экспорт'
     allStockBarcodeBuffer = ''
     clearTimeout(allStockBarcodeBufferTimeout)
     revisionResults = []
+    selectedRevisionBarcodes = new Set()
+    revisionSelectionAnchor = ''
+    revisionMode = 'select'
+    selectedRevisionBarcode = ''
+    revisionRepeatHintBarcode = ''
+    revisionSortMode = 'default'
+    revisionSort.value = revisionSortMode
     stopResults = []
     activeList = 'central'
     transferView = 'items'
@@ -371,6 +404,55 @@ fileInput.addEventListener('change', async () => {
 })
 
 exportBtn.addEventListener('click', exportResults)
+allStockSelectiveExportLink.addEventListener('click', () => {
+    isSelectingAllStockForExport = !isSelectingAllStockForExport
+    selectedAllStockBarcodes.clear()
+    allStockSelectionAnchor = ''
+    renderResults()
+    allStockTableWrapper.focus({ preventScroll: true })
+})
+cancelSelectiveExportBtn.addEventListener('click', () => {
+    isSelectingAllStockForExport = false
+    selectedAllStockBarcodes.clear()
+    allStockSelectionAnchor = ''
+    allStockSelectiveExportLink.textContent = 'Выборочный экспорт'
+    renderResults()
+    allStockTableWrapper.focus({ preventScroll: true })
+})
+selectiveExportBtn.addEventListener('click', () => {
+    if (selectedAllStockBarcodes.size === 0) return
+    exportResults()
+})
+const allStockDragSelection = attachBarcodeDragSelection(
+    resultsBody,
+    () => selectedAllStockBarcodes,
+    () => activeList === 'all-stock' && isSelectingAllStockForExport,
+    () => {
+        renderResults()
+        allStockTableWrapper.focus({ preventScroll: true })
+    },
+    barcode => {
+        allStockSelectionAnchor = barcode
+    },
+)
+resultsBody.addEventListener('click', event => {
+    if (activeList !== 'all-stock' || !isSelectingAllStockForExport) return
+    if (allStockDragSelection.consumeClick()) return
+    if (event.target.closest('input, button')) return
+
+    const row = event.target.closest('tr[data-barcode]')
+    if (!row) return
+
+    allStockSelectionAnchor = updateBarcodeSelection(
+        allStockResults,
+        selectedAllStockBarcodes,
+        allStockSelectionAnchor,
+        row.dataset.barcode,
+        event.shiftKey,
+    )
+    renderResults()
+    allStockTableWrapper.focus({ preventScroll: true })
+})
 document.addEventListener('keydown', event => {
     if (activeList !== 'all-stock') return
     if (event.target instanceof HTMLElement && event.target.matches('input, textarea, select, [contenteditable="true"]')) {
@@ -458,6 +540,58 @@ centralTab.addEventListener('click', () => selectResultsTab('central'))
 restockTab.addEventListener('click', () => selectResultsTab('restock'))
 allStockTab.addEventListener('click', () => selectResultsTab('all-stock'))
 revisionTab.addEventListener('click', () => selectResultsTab('revision'))
+revisionStartBtn.addEventListener('click', () => {
+    if (selectedRevisionBarcodes.size === 0) return
+    revisionMode = 'work'
+    revisionTitle.textContent = 'Ревизия'
+    revisionSelectionView.hidden = true
+    revisionWorkView.hidden = false
+    revisionSelectionActions.hidden = true
+    revisionWorkActions.hidden = false
+    revisionChooseBtn.hidden = false
+    revisionMessage.textContent = ''
+    renderRevisionTable()
+    revisionTableWrapper.focus({ preventScroll: true })
+})
+revisionChooseBtn.addEventListener('click', () => {
+    revisionMode = 'select'
+    revisionTitle.textContent = 'Выбор товаров на ревизию'
+    revisionSelectionView.hidden = false
+    revisionWorkView.hidden = true
+    revisionSelectionActions.hidden = false
+    revisionWorkActions.hidden = true
+    revisionChooseBtn.hidden = true
+    revisionRepeatHintBarcode = ''
+    renderRevisionSelectionTable()
+})
+revisionSort.addEventListener('change', () => {
+    revisionSortMode = revisionSort.value
+    renderRevisionTable()
+})
+const revisionDragSelection = attachBarcodeDragSelection(
+    revisionSelectionBody,
+    () => selectedRevisionBarcodes,
+    () => activeList === 'revision' && revisionMode === 'select',
+    renderRevisionSelectionTable,
+    barcode => {
+        revisionSelectionAnchor = barcode
+    },
+)
+revisionSelectionBody.addEventListener('click', event => {
+    if (revisionDragSelection.consumeClick()) return
+    const row = event.target.closest('tr[data-barcode]')
+    if (!row) return
+
+    const barcode = row.dataset.barcode
+    revisionSelectionAnchor = updateBarcodeSelection(
+        revisionResults,
+        selectedRevisionBarcodes,
+        revisionSelectionAnchor,
+        barcode,
+        event.shiftKey,
+    )
+    renderRevisionSelectionTable()
+})
 revisionTableWrapper.addEventListener('keydown', event => {
     if (event.target !== revisionTableWrapper) return
 
@@ -481,14 +615,26 @@ revisionTableWrapper.addEventListener('keydown', event => {
 revisionTableWrapper.addEventListener('click', event => {
     if (!event.target.closest('input, button')) revisionTableWrapper.focus()
 })
+revisionBody.addEventListener('click', event => {
+    if (event.target.closest('input, button')) return
+
+    const row = event.target.closest('tr[data-barcode]')
+    if (!row) return
+
+    const product = revisionResults.find(item => normalizeBarcode(item.barcode) === row.dataset.barcode)
+    selectedRevisionBarcode = product?.isScanned ? row.dataset.barcode : ''
+    revisionRepeatHintBarcode = ''
+    renderRevisionTable()
+})
 revisionPanel.addEventListener('focusout', () => {
     window.setTimeout(() => {
         const activeElement = document.activeElement
         if (
             activeList === 'revision' &&
-            !activeElement?.matches('.revision-fact, .transfer-quantity-button')
+            revisionMode === 'work' &&
+            !activeElement?.matches('.revision-fact, .transfer-quantity-button, .revision-sort, #revisionExportBtn')
         ) {
-            revisionTableWrapper.focus()
+            revisionTableWrapper.focus({ preventScroll: true })
         }
     }, 0)
 })
@@ -818,6 +964,21 @@ function analyzeStock() {
     excludedRestockResults.sort(compareProductsByName)
     stopResults.sort(compareProductsByName)
     allStockResults.sort(compareProductsByName)
+    revisionResults = allStockResults
+        .filter(product => (parseStock(product.storeStock) ?? 0) > 0)
+        .map(product => ({
+            ...product,
+            factQuantity: '',
+            isScanned: false,
+            zeroFactDecrementCount: 0,
+        }))
+    selectedRevisionBarcodes = new Set()
+    revisionSelectionAnchor = ''
+    revisionMode = 'select'
+    selectedRevisionBarcode = ''
+    revisionRepeatHintBarcode = ''
+    revisionSortMode = 'default'
+    revisionSort.value = revisionSortMode
 
     for (const product of [...results, ...stopResults, ...restockResults]) {
         const matchedAllStock = allStockResults.find(item => getProductKey(item) === getProductKey(product))
@@ -877,8 +1038,19 @@ function renderResults() {
         restockTab.setAttribute('aria-selected', 'false')
         allStockTab.classList.remove('is-active')
         allStockTab.setAttribute('aria-selected', 'false')
-        revisionTab.textContent = `Ревизия ${revisionResults.length}`
-        renderRevisionTable()
+        revisionTab.textContent = 'Ревизия'
+        const isSelectingRevisionItems = revisionMode === 'select'
+        revisionTitle.textContent = isSelectingRevisionItems ? 'Выбор товаров на ревизию' : 'Ревизия'
+        revisionSelectionView.hidden = !isSelectingRevisionItems
+        revisionWorkView.hidden = isSelectingRevisionItems
+        revisionSelectionActions.hidden = !isSelectingRevisionItems
+        revisionWorkActions.hidden = isSelectingRevisionItems
+        revisionChooseBtn.hidden = isSelectingRevisionItems
+        if (isSelectingRevisionItems) {
+            renderRevisionSelectionTable()
+        } else {
+            renderRevisionTable()
+        }
         return
     }
 
@@ -926,6 +1098,7 @@ function renderResults() {
     const isRestockList = activeList === 'restock' || activeList === 'exceptions'
     const isMoveEditable = isCentralList || activeList === 'restock' || isAllStockList
     const isExceptionsList = isCentralExceptionsList || activeList === 'exceptions'
+    resultsBody.classList.toggle('range-selection-body', isAllStockList && isSelectingAllStockForExport)
     const activeResults = isAllStockList
         ? allStockResults
         : isCentralList
@@ -977,12 +1150,35 @@ function renderResults() {
 
     renderTableHeadings(headings)
 
-    for (const product of activeResults) {
+    for (const [index, product] of activeResults.entries()) {
         const tr = document.createElement('tr')
-        if (isAllStockList) tr.dataset.barcode = normalizeBarcode(product.barcode)
+        if (isAllStockList) {
+            const barcode = normalizeBarcode(product.barcode)
+            const isSelected = isSelectingAllStockForExport && selectedAllStockBarcodes.has(barcode)
+            const previousIsSelected =
+                index > 0 &&
+                isSelectingAllStockForExport &&
+                selectedAllStockBarcodes.has(normalizeBarcode(activeResults[index - 1].barcode))
+            const nextIsSelected =
+                index < activeResults.length - 1 &&
+                isSelectingAllStockForExport &&
+                selectedAllStockBarcodes.has(normalizeBarcode(activeResults[index + 1].barcode))
+            tr.dataset.barcode = barcode
+            tr.classList.toggle('revision-selection-selected', isSelected)
+            tr.classList.toggle('revision-selection-start', isSelected && !previousIsSelected)
+            tr.classList.toggle('revision-selection-end', isSelected && !nextIsSelected)
+        }
 
         if (isAllStockList) {
-            addCell(tr, product.name)
+            const nameCell = addCell(tr, '')
+            if (isSelectingAllStockForExport && selectedAllStockBarcodes.has(normalizeBarcode(product.barcode))) {
+                const selectedIcon = document.createElement('span')
+                selectedIcon.className = 'revision-selection-check'
+                selectedIcon.textContent = '✓'
+                selectedIcon.setAttribute('aria-label', 'Выбран для экспорта')
+                nameCell.append(selectedIcon, document.createTextNode(' '))
+            }
+            nameCell.appendChild(document.createTextNode(product.name))
             addCell(tr, formatStock(product.storeStock))
             addCell(tr, formatStock(product.centralStock))
             addCell(tr, formatStock(product.repairStock))
@@ -1072,7 +1268,7 @@ function renderResults() {
     centralTab.textContent = `Только на центральном ${results.length}`
     restockTab.textContent = `Нужно пополнить ${restockResults.length}`
     allStockTab.textContent = `Все остатки ${allStockResults.length}`
-    revisionTab.textContent = `Ревизия ${revisionResults.length}`
+    revisionTab.textContent = 'Ревизия'
     const isCentralActive = isCentralList || isCentralExceptionsList
     const isRestockActive = activeList === 'restock' || activeList === 'exceptions'
     centralTab.classList.toggle('is-active', isCentralActive)
@@ -1100,7 +1296,155 @@ function renderResults() {
     resultsSection.hidden = false
     document.body.classList.add('has-results')
     exportBtn.disabled = activeResults.length === 0
-    exportBtn.hidden = !isAllStockList
+    exportBtn.hidden = !isAllStockList || isSelectingAllStockForExport
+    allStockSelectiveExportLink.hidden = !isAllStockList
+    allStockSelectiveExportLink.textContent = isSelectingAllStockForExport
+        ? 'Все товары'
+        : 'Выборочный экспорт'
+    cancelSelectiveExportBtn.hidden = !isAllStockList || !isSelectingAllStockForExport
+    selectiveExportBtn.hidden = !isAllStockList || !isSelectingAllStockForExport
+    selectiveExportBtn.disabled = selectedAllStockBarcodes.size === 0
+    resultsPanel.classList.toggle('is-selecting-export', isAllStockList && isSelectingAllStockForExport)
+}
+
+function updateBarcodeSelection(products, selection, anchorBarcode, selectedBarcode, extendRange) {
+    const sortedProducts = [...products].sort(compareProductsByName)
+    const selectedIndex = sortedProducts.findIndex(
+        product => normalizeBarcode(product.barcode) === selectedBarcode,
+    )
+    if (selectedIndex === -1) return anchorBarcode
+
+    if (extendRange && anchorBarcode) {
+        const anchorIndex = sortedProducts.findIndex(
+            product => normalizeBarcode(product.barcode) === anchorBarcode,
+        )
+        if (anchorIndex !== -1) {
+            const start = Math.min(anchorIndex, selectedIndex)
+            const end = Math.max(anchorIndex, selectedIndex)
+            const range = sortedProducts
+                .slice(start, end + 1)
+                .map(product => normalizeBarcode(product.barcode))
+            const shouldDeselect = range.every(barcode => selection.has(barcode))
+            for (let index = start; index <= end; index++) {
+                const barcode = normalizeBarcode(sortedProducts[index].barcode)
+                if (shouldDeselect) {
+                    selection.delete(barcode)
+                } else {
+                    selection.add(barcode)
+                }
+            }
+            return anchorBarcode
+        }
+    }
+
+    if (selection.has(selectedBarcode)) {
+        selection.delete(selectedBarcode)
+    } else {
+        selection.add(selectedBarcode)
+    }
+    return selectedBarcode
+}
+
+function attachBarcodeDragSelection(body, getSelection, isEnabled, onSelectionChange, setAnchor) {
+    let startBarcode = ''
+    let currentBarcode = ''
+    let suppressClick = false
+    let shouldSelect = false
+    let didDrag = false
+
+    body.addEventListener(
+        'click',
+        event => {
+            if (!suppressClick) return
+            suppressClick = false
+            event.preventDefault()
+            event.stopImmediatePropagation()
+        },
+        true,
+    )
+
+    body.addEventListener('pointerdown', event => {
+        suppressClick = false
+        startBarcode = ''
+        currentBarcode = ''
+        didDrag = false
+        if (event.pointerType !== 'mouse' || event.button !== 0 || !isEnabled()) return
+        if (event.target.closest('input, button, select, textarea, a')) return
+        const row = event.target.closest('tr[data-barcode]')
+        if (!row) return
+        startBarcode = row.dataset.barcode
+        currentBarcode = startBarcode
+        shouldSelect = !getSelection().has(startBarcode)
+    })
+
+    body.addEventListener('pointerover', event => {
+        if (!startBarcode || !(event.buttons & 1) || !isEnabled()) return
+        const row = event.target.closest('tr[data-barcode]')
+        if (!row || row.dataset.barcode === currentBarcode) return
+        didDrag = true
+        currentBarcode = row.dataset.barcode
+        const selection = getSelection()
+        const orderedBarcodes = Array.from(body.querySelectorAll('tr[data-barcode]'), item => item.dataset.barcode)
+        const startIndex = orderedBarcodes.indexOf(startBarcode)
+        const currentIndex = orderedBarcodes.indexOf(currentBarcode)
+        for (const barcode of orderedBarcodes.slice(
+            Math.min(startIndex, currentIndex),
+            Math.max(startIndex, currentIndex) + 1,
+        )) {
+            if (shouldSelect) {
+                selection.add(barcode)
+            } else {
+                selection.delete(barcode)
+            }
+        }
+        renderBarcodeSelectionState(body, selection)
+    })
+
+    document.addEventListener('pointerup', () => {
+        if (!startBarcode) return
+        if (didDrag && isEnabled()) {
+            setAnchor(startBarcode)
+            onSelectionChange()
+            suppressClick = true
+        }
+        startBarcode = ''
+        currentBarcode = ''
+        didDrag = false
+    })
+
+    return {
+        consumeClick() {
+            if (!suppressClick) return false
+            suppressClick = false
+            return true
+        },
+    }
+}
+
+function renderBarcodeSelectionState(body, selection) {
+    const rows = Array.from(body.querySelectorAll('tr[data-barcode]'))
+    rows.forEach((row, index) => {
+        const barcode = row.dataset.barcode
+        const isSelected = selection.has(barcode)
+        const previousIsSelected = index > 0 && selection.has(rows[index - 1].dataset.barcode)
+        const nextIsSelected = index < rows.length - 1 && selection.has(rows[index + 1].dataset.barcode)
+        row.classList.toggle('revision-selection-selected', isSelected)
+        row.classList.toggle('revision-selection-start', isSelected && !previousIsSelected)
+        row.classList.toggle('revision-selection-end', isSelected && !nextIsSelected)
+
+        const nameCell = row.cells[0]
+        const check = nameCell.querySelector('.revision-selection-check')
+        if (isSelected && !check) {
+            const icon = document.createElement('span')
+            icon.className = 'revision-selection-check'
+            icon.textContent = '✓'
+            icon.setAttribute('aria-label', body === resultsBody ? 'Выбран для экспорта' : 'Выбран на ревизию')
+            nameCell.prepend(icon, document.createTextNode(' '))
+        } else if (!isSelected && check) {
+            check.nextSibling?.textContent === ' ' && check.nextSibling.remove()
+            check.remove()
+        }
+    })
 }
 
 function scrollToAllStockMatch(barcode) {
@@ -1146,40 +1490,63 @@ function scanRevisionBarcode(value) {
     const barcode = normalizeBarcode(value)
     if (!barcode) return
 
-    const product = allStockResults.find(item => normalizeBarcode(item.barcode) === barcode)
+    const product = getSelectedRevisionResults().find(item => normalizeBarcode(item.barcode) === barcode)
     if (!product) {
-        revisionMessage.textContent = `Товар со штрихкодом ${barcode} не найден`
+        selectedRevisionBarcode = ''
+        revisionRepeatHintBarcode = ''
+        const knownProduct = allStockResults.find(item => normalizeBarcode(item.barcode) === barcode)
+        revisionMessage.textContent = knownProduct
+            ? `Товара «${knownProduct.name}» нет в списке ревизии`
+            : `Товар со штрихкодом ${barcode} не найден`
         revisionMessage.classList.remove('is-warning')
         revisionMessage.classList.add('is-error')
+        renderRevisionTable()
         return
     }
 
-    const alreadyAdded = revisionResults.some(item => normalizeBarcode(item.barcode) === barcode)
-    if (alreadyAdded) {
-        revisionMessage.textContent = `Товар уже в списке: ${product.name}`
-        revisionMessage.classList.remove('is-error')
-        revisionMessage.classList.add('is-warning')
-        return
+    selectedRevisionBarcode = barcode
+    revisionRepeatHintBarcode = product.isScanned ? barcode : ''
+    if (!product.isScanned) {
+        product.factQuantity = String(parseStock(product.storeStock) ?? 0)
     }
-
-    revisionResults.unshift({
-        ...product,
-        factQuantity: String(parseStock(product.storeStock) ?? 0),
-        zeroFactDecrementCount: 0,
-    })
-    revisionMessage.textContent = `Добавлен товар: ${product.name}`
+    product.isScanned = true
+    product.zeroFactDecrementCount = 0
+    revisionMessage.textContent = ''
     revisionMessage.classList.remove('is-error', 'is-warning')
-    revisionEmptyMessage.hidden = true
-    revisionExportBtn.disabled = false
-    revisionTab.textContent = `Ревизия ${revisionResults.length}`
     renderRevisionTable()
+    const selectedRow = revisionBody.querySelector('.all-stock-match')
+    selectedRow?.scrollIntoView({ block: 'center', inline: 'nearest' })
 }
 
 function renderRevisionTable() {
     revisionBody.replaceChildren()
-    for (const product of revisionResults) {
+    const selectedProducts = getSelectedRevisionResults()
+    for (const product of getSortedRevisionResults()) {
         const row = document.createElement('tr')
-        addCell(row, product.name)
+        row.dataset.barcode = normalizeBarcode(product.barcode)
+        row.classList.toggle('revision-scanned', product.isScanned)
+        row.classList.toggle('revision-unscanned', !product.isScanned)
+        if (normalizeBarcode(product.barcode) === selectedRevisionBarcode) {
+            row.classList.add('all-stock-match')
+        }
+
+        const nameCell = addCell(row, '')
+        if (product.isScanned) {
+            const isDifferent =
+                (parseStock(product.factQuantity) ?? 0) !== (parseStock(product.storeStock) ?? 0)
+            const statusIcon = document.createElement('span')
+            statusIcon.className = `revision-status-icon ${isDifferent ? 'is-different' : 'is-checked'}`
+            statusIcon.textContent = isDifferent ? '!' : '✓'
+            statusIcon.setAttribute('aria-label', isDifferent ? 'Факт отличается от Ак' : 'Проверено')
+            nameCell.append(statusIcon, document.createTextNode(' '))
+        }
+        nameCell.appendChild(document.createTextNode(product.name))
+        if (normalizeBarcode(product.barcode) === revisionRepeatHintBarcode) {
+            const hint = document.createElement('span')
+            hint.className = 'revision-row-hint'
+            hint.textContent = 'Уже отсканирован'
+            nameCell.appendChild(hint)
+        }
         const storeStockCell = addCell(row, formatStock(product.storeStock ?? 0))
         storeStockCell.classList.add('count-column')
         const centralStockCell = addCell(row, formatStock(product.centralStock ?? 0))
@@ -1192,9 +1559,70 @@ function renderRevisionTable() {
         revisionBody.appendChild(row)
     }
 
-    revisionEmptyMessage.hidden = revisionResults.length !== 0
-    revisionExportBtn.disabled = revisionResults.length === 0
-    revisionTab.textContent = `Ревизия ${revisionResults.length}`
+    revisionEmptyMessage.textContent = selectedProducts.length ? 'Просканируйте товар.' : 'Выберите товары для ревизии.'
+    revisionEmptyMessage.hidden = selectedProducts.length !== 0
+    revisionExportBtn.disabled = selectedProducts.length === 0
+    revisionTab.textContent = 'Ревизия'
+}
+
+function getSelectedRevisionResults() {
+    return revisionResults.filter(product => selectedRevisionBarcodes.has(normalizeBarcode(product.barcode)))
+}
+
+function renderRevisionSelectionTable() {
+    const products = [...revisionResults].sort(compareProductsByName)
+    revisionSelectionBody.replaceChildren()
+    for (const [index, product] of products.entries()) {
+        const barcode = normalizeBarcode(product.barcode)
+        const isSelected = selectedRevisionBarcodes.has(barcode)
+        const previousIsSelected =
+            index > 0 && selectedRevisionBarcodes.has(normalizeBarcode(products[index - 1].barcode))
+        const nextIsSelected =
+            index < products.length - 1 &&
+            selectedRevisionBarcodes.has(normalizeBarcode(products[index + 1].barcode))
+        const row = document.createElement('tr')
+        row.dataset.barcode = barcode
+        row.classList.toggle('revision-selection-selected', isSelected)
+        row.classList.toggle('revision-selection-start', isSelected && !previousIsSelected)
+        row.classList.toggle('revision-selection-end', isSelected && !nextIsSelected)
+        const nameCell = addCell(row, '')
+        if (selectedRevisionBarcodes.has(barcode)) {
+            const selectedIcon = document.createElement('span')
+            selectedIcon.className = 'revision-selection-check'
+            selectedIcon.textContent = '✓'
+            selectedIcon.setAttribute('aria-label', 'Выбран на ревизию')
+            nameCell.append(selectedIcon, document.createTextNode(' '))
+        }
+        nameCell.appendChild(document.createTextNode(product.name))
+        const storeStockCell = addCell(row, formatStock(product.storeStock ?? 0))
+        storeStockCell.classList.add('count-column')
+        const centralStockCell = addCell(row, formatStock(product.centralStock ?? 0))
+        centralStockCell.classList.add('central-stock-column')
+        const priceCell = addCell(row, formatPrice(product.salePrice ?? product.price ?? ''))
+        priceCell.classList.add('price-column')
+        const barcodeCell = addCell(row, product.barcode)
+        barcodeCell.classList.add('barcode-column')
+        revisionSelectionBody.appendChild(row)
+    }
+
+    revisionStartBtn.disabled = selectedRevisionBarcodes.size === 0
+    revisionSelectionEmptyMessage.hidden = products.length !== 0
+    revisionTab.textContent = 'Ревизия'
+}
+
+function getSortedRevisionResults() {
+    return getSelectedRevisionResults().sort((a, b) => {
+        const nameOrder = compareProductsByName(a, b)
+        if (revisionSortMode === 'unscanned') {
+            return Number(a.isScanned) - Number(b.isScanned) || nameOrder
+        }
+        if (revisionSortMode === 'different') {
+            const aDiffers = a.isScanned && (parseStock(a.factQuantity) ?? 0) !== (parseStock(a.storeStock) ?? 0)
+            const bDiffers = b.isScanned && (parseStock(b.factQuantity) ?? 0) !== (parseStock(b.storeStock) ?? 0)
+            return Number(bDiffers) - Number(aDiffers) || nameOrder
+        }
+        return nameOrder
+    })
 }
 
 function addRevisionFactCell(row, product) {
@@ -1207,7 +1635,8 @@ function addRevisionFactCell(row, product) {
     factInput.type = 'number'
     factInput.min = '0'
     factInput.step = 'any'
-    factInput.value = String(parseStock(product.factQuantity) ?? 0)
+    factInput.value = product.isScanned ? String(parseStock(product.factQuantity) ?? 0) : ''
+    factInput.disabled = !product.isScanned
     factInput.setAttribute('aria-label', `Фактическое количество: ${product.name}`)
 
     const updateFact = () => {
@@ -1223,10 +1652,16 @@ function addRevisionFactCell(row, product) {
         } else if (!factInput.value.trim()) {
             product.factQuantity = ''
         }
-        factInput.classList.toggle(
-            'is-different',
-            (parseStock(product.factQuantity) ?? 0) !== (parseStock(product.storeStock) ?? 0),
-        )
+        const isDifferent =
+            product.isScanned && (parseStock(product.factQuantity) ?? 0) !== (parseStock(product.storeStock) ?? 0)
+        factInput.classList.toggle('is-different', isDifferent)
+        const statusIcon = row.querySelector('.revision-status-icon')
+        if (statusIcon) {
+            statusIcon.textContent = isDifferent ? '!' : '✓'
+            statusIcon.classList.toggle('is-different', isDifferent)
+            statusIcon.classList.toggle('is-checked', !isDifferent)
+            statusIcon.setAttribute('aria-label', isDifferent ? 'Факт отличается от Ак' : 'Проверено')
+        }
     }
     factInput.addEventListener('input', updateFact)
     updateFact()
@@ -1236,16 +1671,22 @@ function addRevisionFactCell(row, product) {
         button.type = 'button'
         button.className = 'transfer-quantity-button'
         button.textContent = label
+        button.disabled = !product.isScanned
         button.setAttribute('aria-label', `${accessibleLabel}: ${product.name}`)
         button.addEventListener('click', () => {
             const currentQuantity = parseStock(factInput.value) ?? 0
             if (delta < 0 && currentQuantity === 0) {
                 product.zeroFactDecrementCount = (product.zeroFactDecrementCount ?? 0) + 1
                 if (product.zeroFactDecrementCount >= 5) {
-                    revisionResults.splice(revisionResults.indexOf(product), 1)
-                    revisionMessage.textContent = `Удалён товар: ${product.name}`
-                    revisionMessage.classList.remove('is-error', 'is-warning')
+                    product.isScanned = false
+                    product.factQuantity = ''
+                    product.zeroFactDecrementCount = 0
+                    if (selectedRevisionBarcode === normalizeBarcode(product.barcode)) {
+                        selectedRevisionBarcode = ''
+                        revisionRepeatHintBarcode = ''
+                    }
                     renderRevisionTable()
+                    revisionTableWrapper.focus({ preventScroll: true })
                     return
                 }
                 revisionMessage.textContent = `Для удаления ${product.name} нажмите «−» ещё ${5 - product.zeroFactDecrementCount} раз`
@@ -1255,6 +1696,7 @@ function addRevisionFactCell(row, product) {
             }
             factInput.value = String(Math.max(0, currentQuantity + delta))
             updateFact()
+            revisionTableWrapper.focus({ preventScroll: true })
         })
         return button
     }
@@ -1433,7 +1875,7 @@ function selectResultsTab(tab) {
     )
 
     renderResults()
-    if (isRevisionList) revisionTableWrapper.focus()
+    if (isRevisionList && revisionMode === 'work') revisionTableWrapper.focus({ preventScroll: true })
     if (isAllStockList) allStockTableWrapper.focus({ preventScroll: true })
 }
 
@@ -1935,12 +2377,23 @@ function escapeHtml(value) {
 }
 
 async function exportRevisionResults() {
-    if (!revisionResults.length) return
+    if (getSelectedRevisionResults().length === 0) return
 
     const data = [
-        ['Название', 'Ак', 'Разн', 'Цена', 'Штрихкод', 'Факт'],
-        ...revisionResults.map(product => {
+        ['Название', 'Ак', 'Разница', 'Цена', 'Штрихкод', 'Факт'],
+        ...getSortedRevisionResults().map(product => {
             const storeStock = parseStock(product.storeStock) ?? 0
+            if (!product.isScanned) {
+                return [
+                    product.name,
+                    storeStock,
+                    '',
+                    formatPrice(product.salePrice ?? product.price ?? ''),
+                    product.barcode,
+                    '',
+                ]
+            }
+
             const factQuantity = parseStock(product.factQuantity) ?? 0
             const difference = factQuantity - storeStock
             return [
@@ -1955,6 +2408,24 @@ async function exportRevisionResults() {
     ]
 
     const worksheet = XLSX.utils.aoa_to_sheet(data)
+    getSortedRevisionResults().forEach((product, index) => {
+        const storeStock = parseStock(product.storeStock) ?? 0
+        const factQuantity = parseStock(product.factQuantity) ?? 0
+        const isDifferent = product.isScanned && factQuantity !== storeStock
+        const fillColor = !product.isScanned ? 'E7E7E7' : isDifferent ? 'F4CCCC' : ''
+        if (!fillColor) return
+
+        for (let column = 0; column < data[0].length; column++) {
+            const cell = worksheet[XLSX.utils.encode_cell({ r: index + 1, c: column })]
+            if (!cell) continue
+            cell.s = {
+                fill: {
+                    patternType: 'solid',
+                    fgColor: { rgb: fillColor },
+                },
+            }
+        }
+    })
     worksheet['!cols'] = [{ wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 24 }, { wch: 12 }]
     const exportWorkbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(exportWorkbook, worksheet, 'Ревизия')
@@ -1989,11 +2460,12 @@ async function exportRevisionResults() {
 
 function exportResults() {
     const isAllStockList = activeList === 'all-stock'
+    const isSelectiveAllStockExport = isAllStockList && isSelectingAllStockForExport
     const isCentralList = activeList === 'central' || activeList === 'central-exceptions'
     const isCentralExceptionsList = activeList === 'central-exceptions'
     const isRestockList = activeList === 'restock' || activeList === 'exceptions'
     const isExceptionsList = activeList === 'exceptions'
-    const activeResults = isAllStockList
+    const currentResults = isAllStockList
         ? allStockResults
         : isCentralList
           ? isCentralExceptionsList
@@ -2002,6 +2474,9 @@ function exportResults() {
           : isExceptionsList
             ? excludedRestockResults
             : restockResults
+    const activeResults = isSelectiveAllStockExport
+        ? currentResults.filter(product => selectedAllStockBarcodes.has(normalizeBarcode(product.barcode)))
+        : currentResults
     if (!activeResults.length) return
 
     const data = isAllStockList
@@ -2054,7 +2529,9 @@ function exportResults() {
     )
 
     const exportName = isAllStockList
-        ? 'Все_остатки'
+        ? isSelectiveAllStockExport
+            ? 'Выборочные_остатки'
+            : 'Все_остатки'
         : isCentralList
           ? isCentralExceptionsList
               ? 'Исключения_центрального_склада'
@@ -2064,6 +2541,14 @@ function exportResults() {
             : 'Нужно_пополнить'
 
     XLSX.writeFile(exportWorkbook, `${exportName} ${formatExportDate()}.xlsx`)
+    if (isSelectiveAllStockExport) {
+        isSelectingAllStockForExport = false
+        selectedAllStockBarcodes.clear()
+        allStockSelectionAnchor = ''
+        allStockSelectiveExportLink.textContent = 'Выборочный экспорт'
+        renderResults()
+        allStockTableWrapper.focus({ preventScroll: true })
+    }
 }
 
 function setError(message) {

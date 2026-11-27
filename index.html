@@ -6,7 +6,7 @@
         <title>Анализ остатков</title>
         <link rel="icon" type="image/png" href="icon.png" />
         <link rel="stylesheet" href="style.css" />
-        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     </head>
 
@@ -104,6 +104,9 @@
                     <div class="results-header">
                         <div class="results-heading">
                             <h2 id="resultsTitle">Товары только на центральном складе</h2>
+                            <button type="button" id="allStockSelectiveExportLink" class="text-link" hidden>
+                                Выборочный экспорт
+                            </button>
                             <button type="button" id="exceptionsLink" class="text-link" hidden>Исключения</button>
                             <button type="button" id="restockBackLink" class="text-link" hidden>
                                 ← К товарам к пополнению
@@ -118,6 +121,10 @@
                         </div>
                         <div class="all-stock-actions">
                             <button id="exportBtn" class="secondary-btn" disabled hidden>Экспорт в Excel</button>
+                            <button id="cancelSelectiveExportBtn" class="secondary-btn" hidden>Отмена</button>
+                            <button id="selectiveExportBtn" class="secondary-btn selection-action-button" disabled hidden>
+                                Экспорт выбранного
+                            </button>
                         </div>
                     </div>
 
@@ -186,13 +193,50 @@
                 <div id="revisionPanel" role="tabpanel" aria-labelledby="revisionTab" hidden>
                     <div class="results-header">
                         <div class="results-heading">
-                            <h2>Ревизия</h2>
+                            <h2 id="revisionTitle">Выбор товаров на ревизию</h2>
+                            <button id="revisionChooseBtn" class="text-link revision-choose-link" hidden>
+                                ← Выбор товаров
+                            </button>
                             <p id="revisionMessage" class="revision-message" aria-live="polite"></p>
                         </div>
-                        <button id="revisionExportBtn" class="secondary-btn" disabled>Экспорт в Excel</button>
+                        <div id="revisionSelectionActions" class="revision-actions revision-selection-actions">
+                            <button id="revisionStartBtn" class="secondary-btn revision-start-btn" disabled>
+                                Ревизия
+                            </button>
+                        </div>
+                        <div id="revisionWorkActions" class="revision-actions" hidden>
+                            <label class="revision-sort-label" for="revisionSort">Сортировка</label>
+                            <select id="revisionSort" class="revision-sort">
+                                <option value="default">По умолчанию</option>
+                                <option value="unscanned">Не отсканировано</option>
+                                <option value="different">Отличается</option>
+                            </select>
+                            <button id="revisionExportBtn" class="secondary-btn" disabled>Экспорт в Excel</button>
+                        </div>
                     </div>
 
-                    <div id="revisionTableWrapper" class="table-wrapper revision-table-wrapper" tabindex="0" aria-label="Таблица ревизии. Просканируйте товар">
+                    <div id="revisionSelectionView">
+                        <div id="revisionSelectionTableWrapper" class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th class="count-column">Ак</th>
+                                        <th class="central-stock-column">ЦС</th>
+                                        <th class="price-column">Цена</th>
+                                        <th class="barcode-column">Штрихкод</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="revisionSelectionBody" class="range-selection-body"></tbody>
+                            </table>
+                        </div>
+                        <p id="revisionSelectionEmptyMessage" class="empty-message" hidden>
+                            На складе Аккорда товары не найдены.
+                        </p>
+                    </div>
+
+                    <div id="revisionWorkView" hidden>
+                        <div id="revisionTableWrapper" class="table-wrapper revision-table-wrapper" tabindex="0" aria-label="Таблица ревизии. Просканируйте товар">
                         <table>
                             <thead>
                                 <tr>
@@ -206,8 +250,9 @@
                             </thead>
                             <tbody id="revisionBody"></tbody>
                         </table>
+                        </div>
+                        <p id="revisionEmptyMessage" class="empty-message">Выберите товары для ревизии.</p>
                     </div>
-                    <p id="revisionEmptyMessage" class="empty-message">Просканируйте товар</p>
                 </div>
 
                 <dialog id="transferPrintDialog" class="print-position-dialog" aria-labelledby="printPositionTitle">
