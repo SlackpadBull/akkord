@@ -132,6 +132,7 @@ const transferBody = document.getElementById('transferBody')
 const revisionBody = document.getElementById('revisionBody')
 const revisionSelectionBody = document.getElementById('revisionSelectionBody')
 const revisionSelectionView = document.getElementById('revisionSelectionView')
+const revisionSelectionTableWrapper = document.getElementById('revisionSelectionTableWrapper')
 const revisionWorkView = document.getElementById('revisionWorkView')
 const revisionSelectionActions = document.getElementById('revisionSelectionActions')
 const revisionWorkActions = document.getElementById('revisionWorkActions')
@@ -144,6 +145,7 @@ const revisionMessage = document.getElementById('revisionMessage')
 const revisionEmptyMessage = document.getElementById('revisionEmptyMessage')
 const revisionExportBtn = document.getElementById('revisionExportBtn')
 const revisionSort = document.getElementById('revisionSort')
+const scanNotFoundToast = document.getElementById('scanNotFoundToast')
 const transferEmptyMessage = document.getElementById('transferEmptyMessage')
 const transferExportBtn = document.getElementById('transferExportBtn')
 const transferPrintBtn = document.getElementById('transferPrintBtn')
@@ -172,6 +174,7 @@ let selectedRevisionBarcodes = new Set()
 let revisionSelectionAnchor = ''
 let revisionMode = 'select'
 let selectedRevisionBarcode = ''
+let revisionSelectionMatchBarcode = ''
 let revisionRepeatHintBarcode = ''
 let revisionSortMode = 'default'
 let stopResults = []
@@ -185,6 +188,9 @@ let revisionBarcodeBuffer = ''
 let revisionBarcodeBufferTimeout
 let allStockBarcodeBuffer = ''
 let allStockBarcodeBufferTimeout
+let revisionSelectionBarcodeBuffer = ''
+let revisionSelectionBarcodeBufferTimeout
+let scanNotFoundToastTimeout
 
 function formatGroupedDigits(digits) {
     return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -342,6 +348,9 @@ fileInput.addEventListener('change', async () => {
     revisionResults = []
     selectedRevisionBarcodes = new Set()
     revisionSelectionAnchor = ''
+    revisionSelectionMatchBarcode = ''
+    revisionSelectionBarcodeBuffer = ''
+    clearTimeout(revisionSelectionBarcodeBufferTimeout)
     revisionMode = 'select'
     selectedRevisionBarcode = ''
     revisionRepeatHintBarcode = ''
@@ -484,8 +493,45 @@ document.addEventListener('keydown', event => {
         allStockBarcodeBuffer = ''
     }
 })
+document.addEventListener('keydown', event => {
+    if (activeList !== 'revision' || revisionMode !== 'select') return
+    if (event.target instanceof HTMLElement && event.target.matches('input, textarea, select, [contenteditable="true"]')) {
+        return
+    }
+
+    if (event.key === 'Enter') {
+        if (!revisionSelectionBarcodeBuffer) return
+        event.preventDefault()
+        revisionSelectionBarcodeBuffer = ''
+        clearTimeout(revisionSelectionBarcodeBufferTimeout)
+        return
+    }
+
+    if (!/^\d$/.test(event.key) || event.ctrlKey || event.altKey || event.metaKey) return
+
+    event.preventDefault()
+    revisionSelectionBarcodeBuffer += event.key
+    clearTimeout(revisionSelectionBarcodeBufferTimeout)
+    revisionSelectionBarcodeBufferTimeout = setTimeout(() => {
+        revisionSelectionBarcodeBuffer = ''
+    }, 1200)
+
+    if (revisionSelectionBarcodeBuffer.length === 13) {
+        scrollToRevisionSelectionMatch(revisionSelectionBarcodeBuffer)
+        revisionSelectionBarcodeBuffer = ''
+        clearTimeout(revisionSelectionBarcodeBufferTimeout)
+    } else if (revisionSelectionBarcodeBuffer.length > 13) {
+        revisionSelectionBarcodeBuffer = ''
+    }
+})
 document.addEventListener('click', () => {
     resultsBody.querySelectorAll('.all-stock-match').forEach(row => row.classList.remove('all-stock-match'))
+    revisionBody.querySelectorAll('.all-stock-match').forEach(row => row.classList.remove('all-stock-match'))
+    revisionSelectionBody
+        .querySelectorAll('.all-stock-match')
+        .forEach(row => row.classList.remove('all-stock-match'))
+    selectedRevisionBarcode = ''
+    revisionSelectionMatchBarcode = ''
     allStockBarcodeBuffer = ''
     clearTimeout(allStockBarcodeBufferTimeout)
 })
@@ -563,6 +609,7 @@ revisionChooseBtn.addEventListener('click', () => {
     revisionChooseBtn.hidden = true
     revisionRepeatHintBarcode = ''
     renderRevisionSelectionTable()
+    revisionSelectionTableWrapper.focus({ preventScroll: true })
 })
 revisionSort.addEventListener('change', () => {
     revisionSortMode = revisionSort.value
@@ -1099,6 +1146,7 @@ function renderResults() {
     const isMoveEditable = isCentralList || activeList === 'restock' || isAllStockList
     const isExceptionsList = isCentralExceptionsList || activeList === 'exceptions'
     resultsBody.classList.toggle('range-selection-body', isAllStockList && isSelectingAllStockForExport)
+    resultsBody.closest('table').classList.toggle('selection-table', isAllStockList && isSelectingAllStockForExport)
     const activeResults = isAllStockList
         ? allStockResults
         : isCentralList
@@ -1450,10 +1498,50 @@ function renderBarcodeSelectionState(body, selection) {
 function scrollToAllStockMatch(barcode) {
     resultsBody.querySelectorAll('.all-stock-match').forEach(row => row.classList.remove('all-stock-match'))
     const match = Array.from(resultsBody.rows).find(row => row.dataset.barcode === barcode)
-    if (!match) return
+    if (!match) {
+        showScanNotFoundToast()
+        return false
+    }
 
+    hideScanNotFoundToast()
     match.classList.add('all-stock-match')
     match.scrollIntoView({ block: 'center', inline: 'nearest' })
+    return true
+}
+
+function scrollToRevisionSelectionMatch(barcode) {
+    revisionSelectionBody.querySelectorAll('.all-stock-match').forEach(row => row.classList.remove('all-stock-match'))
+    const match = Array.from(revisionSelectionBody.rows).find(row => row.dataset.barcode === normalizeBarcode(barcode))
+    if (!match) {
+        revisionSelectionMatchBarcode = ''
+        renderRevisionSelectionTable()
+        showScanNotFoundToast()
+        return false
+    }
+
+    hideScanNotFoundToast()
+    revisionSelectionMatchBarcode = match.dataset.barcode
+    renderRevisionSelectionTable()
+    const selectedRow = Array.from(revisionSelectionBody.rows).find(
+        row => row.dataset.barcode === revisionSelectionMatchBarcode,
+    )
+    selectedRow?.scrollIntoView({ block: 'center', inline: 'nearest' })
+    return true
+}
+
+function showScanNotFoundToast() {
+    scanNotFoundToast.hidden = false
+    scanNotFoundToast.classList.remove('is-visible')
+    void scanNotFoundToast.offsetWidth
+    scanNotFoundToast.classList.add('is-visible')
+    clearTimeout(scanNotFoundToastTimeout)
+    scanNotFoundToastTimeout = setTimeout(hideScanNotFoundToast, 2500)
+}
+
+function hideScanNotFoundToast() {
+    clearTimeout(scanNotFoundToastTimeout)
+    scanNotFoundToast.classList.remove('is-visible')
+    scanNotFoundToast.hidden = true
 }
 
 function getTransferItems() {
@@ -1582,6 +1670,7 @@ function renderRevisionSelectionTable() {
             selectedRevisionBarcodes.has(normalizeBarcode(products[index + 1].barcode))
         const row = document.createElement('tr')
         row.dataset.barcode = barcode
+        row.classList.toggle('all-stock-match', barcode === revisionSelectionMatchBarcode)
         row.classList.toggle('revision-selection-selected', isSelected)
         row.classList.toggle('revision-selection-start', isSelected && !previousIsSelected)
         row.classList.toggle('revision-selection-end', isSelected && !nextIsSelected)
@@ -1875,6 +1964,7 @@ function selectResultsTab(tab) {
     )
 
     renderResults()
+    if (isRevisionList && revisionMode === 'select') revisionSelectionTableWrapper.focus({ preventScroll: true })
     if (isRevisionList && revisionMode === 'work') revisionTableWrapper.focus({ preventScroll: true })
     if (isAllStockList) allStockTableWrapper.focus({ preventScroll: true })
 }
